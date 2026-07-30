@@ -9,14 +9,18 @@ type PageStore = {
   selectedPageId: string;
 
   addPage: () => void;
+  addChildPage: (parentId: string) => void;
+  duplicatePage: (id: string) => void;
+
   deletePage: (id: string) => void;
   renamePage: (id: string, title: string) => void;
   updateContent: (id: string, content: string) => void;
   updateIcon: (id: string, icon: string) => void;
   updateCover: (id: string, cover: string) => void;
-  addChildPage: (parentId: string) => void;
+
   toggleExpanded: (id: string) => void;
   toggleFavorite: (id: string) => void;
+
   selectPage: (id: string) => void;
 };
 
@@ -45,26 +49,44 @@ export const usePageStore = create<PageStore>()(
             },
           ],
         })),
-        addChildPage: (parentId) =>
-          set((state) => ({
-            pages: [
-              ...state.pages,
-              {
-                id: crypto.randomUUID(),
-                title: "Untitled",
-                content: "",
-                icon: "📄",
-                cover: "",
-                favorite: false,
 
-                parentId,
-                isExpanded: true,
+      addChildPage: (parentId) =>
+        set((state) => ({
+          pages: [
+            ...state.pages,
+            {
+              id: crypto.randomUUID(),
+              title: "Untitled",
+              content: "",
+              icon: "📄",
+              cover: "",
+              favorite: false,
+              parentId,
+              isExpanded: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        })),
 
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            ],
-          })),
+      duplicatePage: (id) =>
+        set((state) => {
+          const page = state.pages.find((p) => p.id === id);
+
+          if (!page) return state;
+
+          const copy = {
+            ...page,
+            id: crypto.randomUUID(),
+            title: `${page.title} Copy`,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          return {
+            pages: [...state.pages, copy],
+          };
+        }),
 
       deletePage: (id) =>
         set((state) => ({
@@ -79,11 +101,7 @@ export const usePageStore = create<PageStore>()(
         set((state) => ({
           pages: state.pages.map((page) =>
             page.id === id
-              ? {
-                  ...page,
-                  title,
-                  updatedAt: new Date(),
-                }
+              ? { ...page, title, updatedAt: new Date() }
               : page
           ),
         })),
@@ -92,11 +110,7 @@ export const usePageStore = create<PageStore>()(
         set((state) => ({
           pages: state.pages.map((page) =>
             page.id === id
-              ? {
-                  ...page,
-                  content,
-                  updatedAt: new Date(),
-                }
+              ? { ...page, content, updatedAt: new Date() }
               : page
           ),
         })),
@@ -105,11 +119,7 @@ export const usePageStore = create<PageStore>()(
         set((state) => ({
           pages: state.pages.map((page) =>
             page.id === id
-              ? {
-                  ...page,
-                  icon,
-                  updatedAt: new Date(),
-                }
+              ? { ...page, icon, updatedAt: new Date() }
               : page
           ),
         })),
@@ -118,11 +128,7 @@ export const usePageStore = create<PageStore>()(
         set((state) => ({
           pages: state.pages.map((page) =>
             page.id === id
-              ? {
-                  ...page,
-                  cover,
-                  updatedAt: new Date(),
-                }
+              ? { ...page, cover, updatedAt: new Date() }
               : page
           ),
         })),
@@ -131,25 +137,19 @@ export const usePageStore = create<PageStore>()(
         set((state) => ({
           pages: state.pages.map((page) =>
             page.id === id
-              ? {
-                  ...page,
-                  favorite: !page.favorite,
-                  updatedAt: new Date(),
-                }
+              ? { ...page, favorite: !page.favorite, updatedAt: new Date() }
               : page
           ),
         })),
-        toggleExpanded: (id) =>
-          set((state) => ({
-            pages: state.pages.map((page) =>
-              page.id === id
-                ? {
-                    ...page,
-                    isExpanded: !page.isExpanded,
-                  }
-                : page
-            ),
-          })),
+
+      toggleExpanded: (id) =>
+        set((state) => ({
+          pages: state.pages.map((page) =>
+            page.id === id
+              ? { ...page, isExpanded: !page.isExpanded }
+              : page
+          ),
+        })),
 
       selectPage: (id) =>
         set({
