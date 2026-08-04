@@ -1,0 +1,159 @@
+import type { Editor, Range } from "@tiptap/react";
+import {
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  ListTodo,
+  Quote,
+  Code,
+  Minus,
+  Text,
+  ImageIcon,
+  type LucideIcon,
+} from "lucide-react";
+
+export type SlashCommandItem = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  keywords: string[];
+  command: (props: { editor: Editor; range: Range }) => void;
+};
+
+export const slashCommandItems: SlashCommandItem[] = [
+  {
+    title: "Text",
+    description: "Plain paragraph text",
+    icon: Text,
+    keywords: ["paragraph", "text", "p"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setParagraph().run(),
+  },
+  {
+    title: "Heading 1",
+    description: "Big section heading",
+    icon: Heading1,
+    keywords: ["h1", "heading", "title", "big"],
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setNode("heading", { level: 1 })
+        .run(),
+  },
+  {
+    title: "Heading 2",
+    description: "Medium section heading",
+    icon: Heading2,
+    keywords: ["h2", "heading", "subtitle"],
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setNode("heading", { level: 2 })
+        .run(),
+  },
+  {
+    title: "Heading 3",
+    description: "Small section heading",
+    icon: Heading3,
+    keywords: ["h3", "heading"],
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setNode("heading", { level: 3 })
+        .run(),
+  },
+  {
+    title: "Bulleted list",
+    description: "Simple bullet list",
+    icon: List,
+    keywords: ["bullet", "list", "ul"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleBulletList().run(),
+  },
+  {
+    title: "Numbered list",
+    description: "List with numbering",
+    icon: ListOrdered,
+    keywords: ["numbered", "ordered", "list", "ol"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
+    title: "To-do list",
+    description: "Checkbox task item",
+    icon: ListTodo,
+    keywords: ["todo", "task", "checkbox", "check"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleTaskList().run(),
+  },
+  {
+    title: "Quote",
+    description: "Capture a quote",
+    icon: Quote,
+    keywords: ["quote", "blockquote", "citation"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
+  },
+  {
+    title: "Code block",
+    description: "Code snippet with syntax highlighting",
+    icon: Code,
+    keywords: ["code", "snippet", "codeblock"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
+  },
+  {
+    title: "Divider",
+    description: "Horizontal line divider",
+    icon: Minus,
+    keywords: ["divider", "hr", "line", "separator"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
+  },
+  {
+      title: "Image",
+      description: "Upload an image from your computer",
+      icon: ImageIcon,
+      keywords: ["image", "picture", "photo", "upload"],
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            editor
+              .chain()
+              .focus()
+              .setImage({ src: reader.result as string })
+              .run();
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      },
+    },
+];
+
+export function filterSlashCommands(query: string): SlashCommandItem[] {
+  if (!query) return slashCommandItems;
+  const q = query.toLowerCase();
+  return slashCommandItems.filter(
+    (item) =>
+      item.title.toLowerCase().includes(q) ||
+      item.keywords.some((k) => k.includes(q))
+  );
+}

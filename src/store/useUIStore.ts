@@ -3,6 +3,9 @@ import { create } from "zustand";
 type UIStore = {
   commandOpen: boolean;
   setCommandOpen: (open: boolean) => void;
+
+  trashOpen: boolean;
+  setTrashOpen: (open: boolean) => void;
 };
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -11,5 +14,12 @@ export const useUIStore = create<UIStore>((set) => ({
   setCommandOpen: (open) =>
     set({
       commandOpen: open,
+    }),
+
+  trashOpen: false,
+
+  setTrashOpen: (open) =>
+    set({
+      trashOpen: open,
     }),
 }));

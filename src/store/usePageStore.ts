@@ -13,13 +13,17 @@ type PageStore = {
   duplicatePage: (id: string) => void;
 
   deletePage: (id: string) => void;
+  restorePage: (id: string) => void;
+  permanentlyDeletePage: (id: string) => void;
+
   renamePage: (id: string, title: string) => void;
   updateContent: (id: string, content: string) => void;
   updateIcon: (id: string, icon: string) => void;
   updateCover: (id: string, cover: string) => void;
 
   toggleExpanded: (id: string) => void;
-  toggleFavorite: (id: string) => void;
+    toggleFavorite: (id: string) => void;
+    movePage: (id: string, newParentId: string | null) => void;
 
   selectPage: (id: string) => void;
 };
@@ -42,6 +46,7 @@ export const usePageStore = create<PageStore>()(
               icon: "📄",
               cover: "",
               favorite: false,
+              trashed: false,
               parentId: null,
               isExpanded: true,
               createdAt: new Date(),
@@ -61,6 +66,7 @@ export const usePageStore = create<PageStore>()(
               icon: "📄",
               cover: "",
               favorite: false,
+              trashed: false,
               parentId,
               isExpanded: true,
               createdAt: new Date(),
@@ -88,14 +94,68 @@ export const usePageStore = create<PageStore>()(
           };
         }),
 
+      // Soft delete: marks the page (and all its sub-pages) as trashed,
+      // instead of removing them for good. They can be restored later.
       deletePage: (id) =>
-        set((state) => ({
-          pages: state.pages.filter((page) => page.id !== id),
-          selectedPageId:
-            state.selectedPageId === id
-              ? state.pages.find((page) => page.id !== id)?.id ?? ""
+        set((state) => {
+          const idsToTrash = new Set<string>();
+          const collect = (targetId: string) => {
+            idsToTrash.add(targetId);
+            state.pages
+              .filter((page) => page.parentId === targetId)
+              .forEach((child) => collect(child.id));
+          };
+          collect(id);
+
+          const updatedPages = state.pages.map((page) =>
+            idsToTrash.has(page.id) ? { ...page, trashed: true } : page
+          );
+
+          const visiblePages = updatedPages.filter((p) => !p.trashed);
+
+          return {
+            pages: updatedPages,
+            selectedPageId: idsToTrash.has(state.selectedPageId)
+              ? visiblePages[0]?.id ?? ""
               : state.selectedPageId,
-        })),
+          };
+        }),
+
+      // Brings a trashed page (and its sub-pages) back.
+      restorePage: (id) =>
+        set((state) => {
+          const idsToRestore = new Set<string>();
+          const collect = (targetId: string) => {
+            idsToRestore.add(targetId);
+            state.pages
+              .filter((page) => page.parentId === targetId)
+              .forEach((child) => collect(child.id));
+          };
+          collect(id);
+
+          return {
+            pages: state.pages.map((page) =>
+              idsToRestore.has(page.id) ? { ...page, trashed: false } : page
+            ),
+          };
+        }),
+
+      // Actually removes a trashed page (and its sub-pages) for good.
+      permanentlyDeletePage: (id) =>
+        set((state) => {
+          const idsToDelete = new Set<string>();
+          const collect = (targetId: string) => {
+            idsToDelete.add(targetId);
+            state.pages
+              .filter((page) => page.parentId === targetId)
+              .forEach((child) => collect(child.id));
+          };
+          collect(id);
+
+          return {
+            pages: state.pages.filter((page) => !idsToDelete.has(page.id)),
+          };
+        }),
 
       renamePage: (id, title) =>
         set((state) => ({
@@ -150,6 +210,30 @@ export const usePageStore = create<PageStore>()(
               : page
           ),
         })),
+        movePage: (id, newParentId) =>
+                set((state) => {
+                  // Prevent dropping a page onto itself or one of its own children
+                  const isDescendant = (
+                    candidateId: string,
+                    ancestorId: string
+                  ): boolean => {
+                    const candidate = state.pages.find((p) => p.id === candidateId);
+                    if (!candidate || candidate.parentId === null) return false;
+                    if (candidate.parentId === ancestorId) return true;
+                    return isDescendant(candidate.parentId, ancestorId);
+                  };
+
+                  if (newParentId === id) return state;
+                  if (newParentId && isDescendant(newParentId, id)) return state;
+
+                  return {
+                    pages: state.pages.map((page) =>
+                      page.id === id
+                        ? { ...page, parentId: newParentId, isExpanded: true }
+                        : page
+                    ),
+                  };
+                }),
 
       selectPage: (id) =>
         set({

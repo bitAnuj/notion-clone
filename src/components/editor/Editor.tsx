@@ -1,5 +1,7 @@
 import { useRef } from "react";
 import { usePageStore } from "../../store/usePageStore";
+import IconPicker from "./IconPicker";
+import Breadcrumbs from "./Breadcrumbs";
 import NotionEditor from "./NotionEditor";
 
 function Editor() {
@@ -30,6 +32,7 @@ function Editor() {
 
   return (
     <div className="mx-auto max-w-4xl p-16">
+      <Breadcrumbs page={page} />
       <input
         ref={fileInputRef}
         type="file"
@@ -53,12 +56,7 @@ function Editor() {
         {page.cover ? "Change Cover" : "Add Cover"}
       </button>
 
-      <input
-        type="text"
-        value={page.icon || "📄"}
-        onChange={(e) => updateIcon(page.id, e.target.value)}
-        className="mb-4 w-20 bg-transparent text-6xl outline-none"
-      />
+      <IconPicker icon={page.icon} onSelect={(emoji) => updateIcon(page.id, emoji)} />
 
       <p className="mb-2 text-sm text-zinc-500">
         Last updated: {new Date(page.updatedAt).toLocaleString()}
