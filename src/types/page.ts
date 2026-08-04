@@ -4,8 +4,9 @@ export type Page = {
   content: string;
 
   icon: string;
- cover: string;
+  cover: string;
   favorite: boolean;
+  trashed: boolean;
 
   parentId: string | null;
   isExpanded: boolean;

@@ -8,6 +8,7 @@ export const pages: Page[] = [
     icon: "📄",
     cover: "",
     favorite: false,
+    trashed: false,
 
     parentId: null,
     isExpanded: true,
