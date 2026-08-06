@@ -4,10 +4,11 @@ import { usePageStore } from "../../store/usePageStore";
 import { useUIStore } from "../../store/useUIStore";
 import PageTreeItem from "./PageTreeItem";
 import TrashPanel from "./TrashPanel";
+import SettingsPanel from "./SettingsPanel";
 
 function Sidebar() {
   const { pages, addPage, selectPage } = usePageStore();
-  const { setCommandOpen, setTrashOpen } = useUIStore();
+  const { setCommandOpen, setTrashOpen, setSettingsOpen } = useUIStore();
 
   const visiblePages = pages.filter((page) => !page.trashed);
   const favoritePages = visiblePages.filter((page) => page.favorite);
@@ -32,7 +33,10 @@ function Sidebar() {
           Search
         </button>
 
-        <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 hover:bg-zinc-800">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 hover:bg-zinc-800"
+        >
           <Settings size={18} />
           Settings
         </button>
@@ -79,6 +83,7 @@ function Sidebar() {
       </div>
 
       <TrashPanel />
+      <SettingsPanel />
     </aside>
   );
 }

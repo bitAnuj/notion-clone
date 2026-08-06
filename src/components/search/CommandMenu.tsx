@@ -10,12 +10,18 @@ import {
 import { useUIStore } from "../../store/useUIStore";
 import { usePageStore } from "../../store/usePageStore";
 
+function stripHtml(html: string) {
+  return html.replace(/<[^>]*>/g, " ");
+}
+
 function CommandMenu() {
   const { commandOpen, setCommandOpen } = useUIStore();
 
   const { pages, selectPage } = usePageStore();
 
   if (!commandOpen) return null;
+
+  const visiblePages = pages.filter((page) => !page.trashed);
 
   return (
     <div
@@ -26,21 +32,24 @@ function CommandMenu() {
         className="mx-auto w-full max-w-xl rounded-xl bg-zinc-900 p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <CommandInput placeholder="Search pages..." />
+        <CommandInput placeholder="Search pages and content..." />
 
         <CommandList>
           <CommandEmpty>No pages found.</CommandEmpty>
 
           <CommandGroup heading="Pages">
-            {pages.map((page) => (
+            {visiblePages.map((page) => (
               <CommandItem
                 key={page.id}
+                value={`${page.title} ${stripHtml(page.content)}`}
                 onSelect={() => {
                   selectPage(page.id);
                   setCommandOpen(false);
                 }}
+                className="flex items-center gap-2"
               >
-                {page.title}
+                <span>{page.icon || "📄"}</span>
+                <span>{page.title || "Untitled"}</span>
               </CommandItem>
             ))}
           </CommandGroup>

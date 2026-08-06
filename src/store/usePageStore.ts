@@ -23,7 +23,13 @@ type PageStore = {
 
   toggleExpanded: (id: string) => void;
     toggleFavorite: (id: string) => void;
-    movePage: (id: string, newParentId: string | null) => void;
+  movePage: (id: string, newParentId: string | null) => void;
+  setAllPages: (pages: Page[]) => void;
+  reorderPage: (
+      draggedId: string,
+      targetId: string,
+      position: "before" | "after"
+    ) => void;
 
   selectPage: (id: string) => void;
 };
@@ -234,6 +240,35 @@ export const usePageStore = create<PageStore>()(
                     ),
                   };
                 }),
+      setAllPages: (pages) =>
+                        set({
+                          pages,
+                          selectedPageId: pages[0]?.id ?? "",
+                        }),
+                        reorderPage: (draggedId, targetId, position) =>
+                                set((state) => {
+                                  const dragged = state.pages.find((p) => p.id === draggedId);
+                                  const target = state.pages.find((p) => p.id === targetId);
+
+                                  if (!dragged || !target || dragged.id === target.id) return state;
+
+                                  // Move the dragged page to the same parent as the target
+                                  const withoutDragged = state.pages.filter(
+                                    (p) => p.id !== draggedId
+                                  );
+                                  const updatedDragged = { ...dragged, parentId: target.parentId };
+
+                                  const targetIndex = withoutDragged.findIndex(
+                                    (p) => p.id === targetId
+                                  );
+                                  const insertIndex =
+                                    position === "before" ? targetIndex : targetIndex + 1;
+
+                                  const newPages = [...withoutDragged];
+                                  newPages.splice(insertIndex, 0, updatedDragged);
+
+                                  return { pages: newPages };
+                                }),
 
       selectPage: (id) =>
         set({
