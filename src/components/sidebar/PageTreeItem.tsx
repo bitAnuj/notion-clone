@@ -9,9 +9,11 @@ type PageTreeItemProps = {
   depth: number;
 };
 
+type DropZone = "before" | "after" | "inside" | null;
+
 function PageTreeItem({ page, depth }: PageTreeItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [dropZone, setDropZone] = useState<DropZone>(null);
 
   const {
     pages,
@@ -23,6 +25,7 @@ function PageTreeItem({ page, depth }: PageTreeItemProps) {
     duplicatePage,
     addChildPage,
     movePage,
+    reorderPage,
   } = usePageStore();
 
   const children = pages.filter(
@@ -40,20 +43,32 @@ function PageTreeItem({ page, depth }: PageTreeItemProps) {
         }}
         onDragOver={(e) => {
           e.preventDefault();
-          setDragOver(true);
+          const rect = e.currentTarget.getBoundingClientRect();
+          const relativeY = e.clientY - rect.top;
+          const ratio = relativeY / rect.height;
+
+          if (ratio < 0.25) setDropZone("before");
+          else if (ratio > 0.75) setDropZone("after");
+          else setDropZone("inside");
         }}
-        onDragLeave={() => setDragOver(false)}
+        onDragLeave={() => setDropZone(null)}
         onDrop={(e) => {
           e.preventDefault();
-          setDragOver(false);
           const draggedId = e.dataTransfer.getData("text/plain");
+
           if (draggedId && draggedId !== page.id) {
-            movePage(draggedId, page.id);
+            if (dropZone === "before") reorderPage(draggedId, page.id, "before");
+            else if (dropZone === "after") reorderPage(draggedId, page.id, "after");
+            else movePage(draggedId, page.id);
           }
+
+          setDropZone(null);
         }}
         className={`group relative flex items-center rounded-md ${
           selectedPageId === page.id ? "bg-zinc-800" : "hover:bg-zinc-800"
-        } ${dragOver ? "outline outline-2 outline-blue-500" : ""}`}
+        } ${dropZone === "inside" ? "outline outline-2 outline-blue-500" : ""} ${
+          dropZone === "before" ? "border-t-2 border-blue-500" : ""
+        } ${dropZone === "after" ? "border-b-2 border-blue-500" : ""}`}
         style={{ paddingLeft: depth * 14 }}
       >
         <button

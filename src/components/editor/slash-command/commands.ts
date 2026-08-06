@@ -11,8 +11,10 @@ import {
   Minus,
   Text,
   ImageIcon,
-  type LucideIcon,
-} from "lucide-react";
+    Lightbulb,
+    Table2,
+    type LucideIcon,
+  } from "lucide-react";
 
 export type SlashCommandItem = {
   title: string;
@@ -145,6 +147,27 @@ export const slashCommandItems: SlashCommandItem[] = [
         };
         input.click();
       },
+    },
+    {
+        title: "Callout",
+        description: "Highlighted box to draw attention",
+        icon: Lightbulb,
+        keywords: ["callout", "highlight", "note", "tip", "warning"],
+        command: ({ editor, range }) =>
+          editor.chain().focus().deleteRange(range).setCallout().run(),
+  },
+  {
+      title: "Table",
+      description: "Insert a simple table",
+      icon: Table2,
+      keywords: ["table", "grid", "spreadsheet"],
+      command: ({ editor, range }) =>
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+          .run(),
     },
 ];
 

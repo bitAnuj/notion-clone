@@ -20,14 +20,34 @@ function TrashPanel() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Trash</h2>
-          <button
-            onClick={() => setTrashOpen(false)}
-            className="rounded p-1 hover:bg-zinc-800"
-          >
-            <X size={18} />
-          </button>
-        </div>
+                  <h2 className="text-lg font-semibold">Trash</h2>
+                  <div className="flex items-center gap-1">
+                    {trashedPages.length > 0 && (
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Permanently delete everything in the trash? This can't be undone."
+                            )
+                          ) {
+                            trashedPages
+                              .filter((p) => p.parentId === null || !trashedPages.some((t) => t.id === p.parentId))
+                              .forEach((p) => permanentlyDeletePage(p.id));
+                          }
+                        }}
+                        className="rounded px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
+                      >
+                        Empty Trash
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setTrashOpen(false)}
+                      className="rounded p-1 hover:bg-zinc-800"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
 
         {trashedPages.length === 0 && (
           <p className="py-8 text-center text-sm text-zinc-500">

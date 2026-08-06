@@ -6,6 +6,9 @@ type UIStore = {
 
   trashOpen: boolean;
   setTrashOpen: (open: boolean) => void;
+
+  settingsOpen: boolean;
+  setSettingsOpen: (open: boolean) => void;
 };
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -21,5 +24,12 @@ export const useUIStore = create<UIStore>((set) => ({
   setTrashOpen: (open) =>
     set({
       trashOpen: open,
+    }),
+
+  settingsOpen: false,
+
+  setSettingsOpen: (open) =>
+    set({
+      settingsOpen: open,
     }),
 }));
