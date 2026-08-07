@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
+import PageIcon from "../editor/PageIcon";
 import type { Page } from "../../types/page";
 import PageContextMenu from "../ui/PageContextMenu";
 
@@ -88,7 +89,7 @@ function PageTreeItem({ page, depth }: PageTreeItemProps) {
           onClick={() => selectPage(page.id)}
           className="flex flex-1 items-center gap-2 py-1.5 pr-1 text-left"
         >
-          <span>{page.icon || "📄"}</span>
+          <span><PageIcon icon={page.icon} /></span>
           <span className="truncate text-sm">{page.title || "Untitled"}</span>
         </button>
 

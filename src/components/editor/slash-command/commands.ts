@@ -11,10 +11,18 @@ import {
   Minus,
   Text,
   ImageIcon,
-    Lightbulb,
-    Table2,
-    type LucideIcon,
+  Lightbulb,
+  Table2,
+  ChevronRightSquare,
+  FileText,
+  Link2,
+  ListTree,
+  Film,
+  Sigma,
+  Columns3,
+  type LucideIcon,
   } from "lucide-react";
+import { usePageStore } from "../../../store/usePageStore";
 
 export type SlashCommandItem = {
   title: string;
@@ -121,53 +129,159 @@ export const slashCommandItems: SlashCommandItem[] = [
       editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
   },
   {
-      title: "Image",
-      description: "Upload an image from your computer",
-      icon: ImageIcon,
-      keywords: ["image", "picture", "photo", "upload"],
-      command: ({ editor, range }) => {
-        editor.chain().focus().deleteRange(range).run();
+    title: "Image",
+    description: "Upload an image from your computer",
+    icon: ImageIcon,
+    keywords: ["image", "picture", "photo", "upload"],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
 
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.onchange = () => {
-          const file = input.files?.[0];
-          if (!file) return;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return;
 
-          const reader = new FileReader();
-          reader.onload = () => {
-            editor
-              .chain()
-              .focus()
-              .setImage({ src: reader.result as string })
-              .run();
-          };
-          reader.readAsDataURL(file);
+        const reader = new FileReader();
+        reader.onload = () => {
+          editor
+            .chain()
+            .focus()
+            .setImage({ src: reader.result as string })
+            .run();
         };
-        input.click();
-      },
+        reader.readAsDataURL(file);
+      };
+      input.click();
     },
-    {
-        title: "Callout",
-        description: "Highlighted box to draw attention",
-        icon: Lightbulb,
-        keywords: ["callout", "highlight", "note", "tip", "warning"],
-        command: ({ editor, range }) =>
-          editor.chain().focus().deleteRange(range).setCallout().run(),
   },
   {
-      title: "Table",
-      description: "Insert a simple table",
-      icon: Table2,
-      keywords: ["table", "grid", "spreadsheet"],
-      command: ({ editor, range }) =>
+    title: "Callout",
+    description: "Highlighted box to draw attention",
+    icon: Lightbulb,
+    keywords: ["callout", "highlight", "note", "tip", "warning"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setCallout().run(),
+  },
+  {
+    title: "Table",
+    description: "Insert a simple table",
+    icon: Table2,
+    keywords: ["table", "grid", "spreadsheet"],
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+        .run(),
+  },
+  {
+    title: "Toggle list",
+    description: "Collapsible section you can hide/show",
+    icon: ChevronRightSquare,
+    keywords: ["toggle", "collapse", "expand", "dropdown"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).insertToggle().run(),
+  },
+  {
+    title: "Embed",
+    description: "Embed a YouTube video or website link",
+    icon: Film,
+    keywords: ["embed", "youtube", "video", "iframe", "website"],
+    command: ({ editor, range }) => {
+      const url = window.prompt("Paste a YouTube or website link");
+      if (!url) return;
+      editor.chain().focus().deleteRange(range).setEmbed(url).run();
+    },
+  },
+  {
+    title: "Sub-page",
+    description: "Create a new nested page here",
+    icon: FileText,
+    keywords: ["subpage", "page", "nested", "child"],
+    command: ({ editor, range }) => {
+      const { selectedPageId, addChildPage, pages } = usePageStore.getState();
+      const beforeIds = new Set(pages.map((p) => p.id));
+
+      addChildPage(selectedPageId);
+
+      const newPage = usePageStore
+        .getState()
+        .pages.find((p) => !beforeIds.has(p.id));
+
+      if (!newPage) return;
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent({
+          type: "mention",
+          attrs: { id: newPage.id, label: newPage.title || "Untitled" },
+        })
+        .run();
+    },
+  },
+  {
+    title: "Link to page",
+    description: "Link to an existing page",
+    icon: Link2,
+    keywords: ["link", "page", "mention", "reference"],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).insertContent("@").run(),
+  },
+  {
+    title: "Table of contents",
+    description: "List of this page's headings",
+    icon: ListTree,
+    keywords: ["toc", "contents", "outline", "headings"],
+    command: ({ editor, range }) => {
+      const headings: string[] = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === "heading") {
+          headings.push(node.textContent);
+        }
+      });
+
+      if (headings.length === 0) {
         editor
           .chain()
           .focus()
           .deleteRange(range)
-          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-          .run(),
+          .insertContent("<p>No headings yet on this page.</p>")
+          .run();
+        return;
+      }
+
+      const listItems = headings
+        .map((h) => `<li><p>${h}</p></li>`)
+        .join("");
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent(`<ul>${listItems}</ul>`)
+        .run();
+    },
+  },
+  {
+      title: "Math equation",
+      description: "Insert a LaTeX math formula",
+      icon: Sigma,
+      keywords: ["math", "equation", "formula", "latex"],
+      command: ({ editor, range }) =>
+        editor.chain().focus().deleteRange(range).insertMath().run(),
+  },
+  {
+      title: "2 columns",
+      description: "Side-by-side layout",
+      icon: Columns3,
+      keywords: ["columns", "layout", "side by side"],
+      command: ({ editor, range }) =>
+        editor.chain().focus().deleteRange(range).insertColumns().run(),
     },
 ];
 

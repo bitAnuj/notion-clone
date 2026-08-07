@@ -13,6 +13,10 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
+import ToggleBlock from "./toggle/ToggleBlock";
+import EmbedBlock from "./embed/Embed";
+import MathBlock from "./math/MathBlock";
+import { Column, Columns } from "./columns/Columns";
 import SelectionToolbar from "./SelectionToolbar";
 import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
@@ -72,6 +76,11 @@ function NotionEditor() {
       TableRow,
       TableHeader,
       TableCell,
+      ToggleBlock,
+      EmbedBlock,
+      MathBlock,
+      Column,
+      Columns,
       SlashCommand,
       createPageMention(pagesRef),
     ],
