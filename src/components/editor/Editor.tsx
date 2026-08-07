@@ -3,6 +3,9 @@ import { usePageStore } from "../../store/usePageStore";
 import IconPicker from "./IconPicker";
 import Breadcrumbs from "./Breadcrumbs";
 import NotionEditor from "./NotionEditor";
+import { useState } from "react";
+import { MoreHorizontal } from "lucide-react";
+import PageContextMenu from "../ui/PageContextMenu";
 
 function Editor() {
   const {
@@ -12,7 +15,11 @@ function Editor() {
       updateIcon,
       updateCover,
       addPage,
+      toggleFavorite,
+      duplicatePage,
+      deletePage,
     } = usePageStore();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,7 +53,36 @@ function Editor() {
 
   return (
     <div className="mx-auto max-w-4xl p-16">
-      <Breadcrumbs page={page} />
+      <div className="mb-2 flex items-center justify-between">
+              <Breadcrumbs page={page} />
+
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+
+                {menuOpen && (
+                  <PageContextMenu
+                    onRename={() => setMenuOpen(false)}
+                    onDuplicate={() => {
+                      duplicatePage(page.id);
+                      setMenuOpen(false);
+                    }}
+                    onFavorite={() => {
+                      toggleFavorite(page.id);
+                      setMenuOpen(false);
+                    }}
+                    onDelete={() => {
+                      deletePage(page.id);
+                      setMenuOpen(false);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
       <input
         ref={fileInputRef}
         type="file"

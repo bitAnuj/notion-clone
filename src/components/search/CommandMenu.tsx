@@ -9,6 +9,7 @@ import {
 
 import { useUIStore } from "../../store/useUIStore";
 import { usePageStore } from "../../store/usePageStore";
+import PageIcon from "../editor/PageIcon";
 
 function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, " ");
@@ -48,7 +49,7 @@ function CommandMenu() {
                 }}
                 className="flex items-center gap-2"
               >
-                <span>{page.icon || "📄"}</span>
+                <span><PageIcon icon={page.icon} /></span>
                 <span>{page.title || "Untitled"}</span>
               </CommandItem>
             ))}

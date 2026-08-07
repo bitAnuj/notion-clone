@@ -1,6 +1,7 @@
 import { RotateCcw, Trash2, X } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import { useUIStore } from "../../store/useUIStore";
+import PageIcon from "../editor/PageIcon";
 
 function TrashPanel() {
   const { trashOpen, setTrashOpen } = useUIStore();
@@ -62,7 +63,7 @@ function TrashPanel() {
               className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-zinc-800"
             >
               <span className="flex items-center gap-2 truncate">
-                <span>{page.icon || "📄"}</span>
+                <span><PageIcon icon={page.icon} /></span>
                 <span className="truncate text-sm">
                   {page.title || "Untitled"}
                 </span>

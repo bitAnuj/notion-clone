@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import type { Page } from "../../types/page";
+import PageIcon from "./PageIcon";
 
 type BreadcrumbsProps = {
   page: Page;
@@ -29,7 +30,7 @@ function Breadcrumbs({ page }: BreadcrumbsProps) {
               i === trail.length - 1 ? "text-zinc-200" : ""
             }`}
           >
-            <span>{p.icon || "📄"}</span>
+            <span><PageIcon icon={p.icon} /></span>
             <span className="max-w-[140px] truncate">
               {p.title || "Untitled"}
             </span>
