@@ -20,6 +20,8 @@ import {
   Film,
   Sigma,
   Columns3,
+  Database,
+  Paperclip,
   type LucideIcon,
   } from "lucide-react";
 import { usePageStore } from "../../../store/usePageStore";
@@ -282,6 +284,45 @@ export const slashCommandItems: SlashCommandItem[] = [
       keywords: ["columns", "layout", "side by side"],
       command: ({ editor, range }) =>
         editor.chain().focus().deleteRange(range).insertColumns().run(),
+  },
+  {
+      title: "Database",
+      description: "Table, Kanban, or Gallery of items",
+      icon: Database,
+      keywords: ["database", "kanban", "gallery", "table", "board"],
+      command: ({ editor, range }) =>
+        editor.chain().focus().deleteRange(range).insertDatabase().run(),
+  },
+  {
+      title: "File attachment",
+      description: "Upload any file from your computer",
+      icon: Paperclip,
+      keywords: ["file", "attachment", "upload", "document", "pdf"],
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+
+        const input = document.createElement("input");
+        input.type = "file";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            editor
+              .chain()
+              .focus()
+              .setFile({
+                name: file.name,
+                size: file.size,
+                dataUrl: reader.result as string,
+              })
+              .run();
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      },
     },
 ];
 

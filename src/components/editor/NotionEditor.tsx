@@ -9,6 +9,9 @@ import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Callout from "./callout/Callout";
 import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -17,6 +20,8 @@ import ToggleBlock from "./toggle/ToggleBlock";
 import EmbedBlock from "./embed/Embed";
 import MathBlock from "./math/MathBlock";
 import { Column, Columns } from "./columns/Columns";
+import DatabaseBlock from "./database/DatabaseBlock";
+import FileBlock from "./file/FileBlock";
 import SelectionToolbar from "./SelectionToolbar";
 import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
@@ -70,6 +75,11 @@ function NotionEditor() {
       }),
       Callout,
       Highlight,
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+      TextStyle,
+      Color,
       Table.configure({
         resizable: true,
       }),
@@ -81,6 +91,8 @@ function NotionEditor() {
       MathBlock,
       Column,
       Columns,
+      DatabaseBlock,
+      FileBlock,
       SlashCommand,
       createPageMention(pagesRef),
     ],
