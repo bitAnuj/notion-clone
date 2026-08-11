@@ -25,7 +25,7 @@ function DatabaseKanban({ items, onChange }: DatabaseKanbanProps) {
   };
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {STATUSES.map((status) => (
         <div
           key={status}
@@ -72,7 +72,7 @@ function DatabaseKanban({ items, onChange }: DatabaseKanbanProps) {
                   />
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="hidden rounded p-0.5 text-zinc-500 hover:text-red-400 group-hover:block"
+                    className="block rounded p-0.5 text-zinc-500 hover:text-red-400 md:hidden md:group-hover:block"
                   >
                     <Trash2 size={13} />
                   </button>

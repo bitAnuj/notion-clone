@@ -23,7 +23,7 @@ function DatabaseTable({ items, onChange }: DatabaseTableProps) {
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-700">
+    <div className="overflow-x-auto rounded-lg border border-zinc-700">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-700 bg-zinc-800 text-left text-zinc-400">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useClickOutside } from "../../lib/useClickOutside";
 import {
   GripVertical,
   Plus,
@@ -79,6 +80,8 @@ const TURN_INTO_OPTIONS = [
 function BlockDragHandle({ editor, containerRef }: BlockDragHandleProps) {
   const [top, setTop] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+    useClickOutside(menuRef, () => setMenuOpen(false));
   const hoveredPos = useRef<{ pos: number; size: number } | null>(null);
   const draggingPos = useRef<{ pos: number; size: number } | null>(null);
 
@@ -184,7 +187,7 @@ function BlockDragHandle({ editor, containerRef }: BlockDragHandleProps) {
         <Plus size={16} />
       </button>
 
-      <div className="relative">
+      <div className="relative" ref={menuRef}>
         <div
           draggable
           onClick={() => setMenuOpen((o) => !o)}

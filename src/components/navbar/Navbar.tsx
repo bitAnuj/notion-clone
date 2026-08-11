@@ -1,21 +1,29 @@
-import { Search, Bell, Settings } from "lucide-react";
+import { Search, Bell, Settings, Menu } from "lucide-react";
 import { useUIStore } from "../../store/useUIStore";
 
 function Navbar() {
-  const { setCommandOpen, setSettingsOpen } = useUIStore();
+  const { setCommandOpen, setSettingsOpen, setSidebarOpen } = useUIStore();
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-6 backdrop-blur-sm">
-      <h1 className="text-lg font-semibold tracking-tight">Notion Clone</h1>
-
+    <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-3 backdrop-blur-sm md:px-6">
       <div className="flex items-center gap-2">
         <button
+          onClick={() => setSidebarOpen(true)}
+          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 md:hidden"
+        >
+          <Menu size={20} />
+        </button>
+        <h1 className="text-lg font-semibold tracking-tight">Notion Clone</h1>
+      </div>
+
+      <div className="flex items-center gap-1 md:gap-2">
+        <button
           onClick={() => setCommandOpen(true)}
-          className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+          className="flex items-center gap-2 rounded-lg border border-zinc-700 p-2 text-sm text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 sm:px-3 sm:py-1.5"
         >
           <Search size={16} />
-          Search
-          <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-500">
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="hidden rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-500 sm:inline">
             Ctrl K
           </kbd>
         </button>

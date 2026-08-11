@@ -5,6 +5,7 @@ import NotionEditor from "./NotionEditor";
 import IconPicker from "./IconPicker";
 import Breadcrumbs from "./Breadcrumbs";
 import PageContextMenu from "../ui/PageContextMenu";
+import { useClickOutside } from "../../lib/useClickOutside";
 
 function Editor() {
   const {
@@ -20,6 +21,8 @@ function Editor() {
   } = usePageStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+    useClickOutside(menuRef, () => setMenuOpen(false));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,7 +75,7 @@ function Editor() {
             alt="Cover"
             className="h-56 w-full object-cover"
           />
-          <div className="absolute right-4 top-4 hidden gap-2 group-hover:flex">
+          <div className="absolute right-4 top-4 flex gap-2 md:hidden md:group-hover:flex">
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 rounded-md bg-black/60 px-3 py-1.5 text-xs text-white backdrop-blur-sm hover:bg-black/80"
@@ -91,7 +94,7 @@ function Editor() {
         </div>
       ) : null}
 
-      <div className="px-16">
+      <div className="px-4 sm:px-8 md:px-16">
         <div className="mb-4 flex items-center justify-between">
           <Breadcrumbs page={page} />
 
@@ -106,7 +109,7 @@ function Editor() {
               </button>
             )}
 
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
@@ -144,7 +147,7 @@ function Editor() {
           value={page.title}
           onChange={(e) => renamePage(page.id, e.target.value)}
           placeholder="Untitled"
-          className="mb-1 w-full bg-transparent text-4xl font-bold outline-none placeholder:text-zinc-600"
+          className="mb-1 w-full bg-transparent text-3xl font-bold outline-none placeholder:text-zinc-600 sm:text-4xl"
         />
 
         <p className="mb-8 text-xs text-zinc-600">
