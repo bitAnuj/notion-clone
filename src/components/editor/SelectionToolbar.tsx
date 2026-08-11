@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { Editor } from "@tiptap/react";
 import {
@@ -13,6 +13,7 @@ import {
   AlignRight,
   Baseline,
 } from "lucide-react";
+import { useClickOutside } from "../../lib/useClickOutside";
 
 type SelectionToolbarProps = {
   editor: Editor;
@@ -31,6 +32,8 @@ const TEXT_COLORS = [
 
 function SelectionToolbar({ editor }: SelectionToolbarProps) {
   const [colorOpen, setColorOpen] = useState(false);
+  const colorMenuRef = useRef<HTMLDivElement>(null);
+    useClickOutside(colorMenuRef, () => setColorOpen(false));
 
   const setLink = () => {
     const previousUrl = editor.getAttributes("link").href as
@@ -50,7 +53,10 @@ function SelectionToolbar({ editor }: SelectionToolbarProps) {
 
   return (
     <BubbleMenu editor={editor}>
-      <div className="relative flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-900 p-1 shadow-xl">
+      <div
+              ref={colorMenuRef}
+              className="relative flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-900 p-1 shadow-xl"
+            >
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={`rounded p-1.5 hover:bg-zinc-800 ${

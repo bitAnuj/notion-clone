@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import PageIcon from "../editor/PageIcon";
+import { useClickOutside } from "../../lib/useClickOutside";
 import type { Page } from "../../types/page";
 import PageContextMenu from "../ui/PageContextMenu";
 
@@ -14,6 +15,8 @@ type DropZone = "before" | "after" | "inside" | null;
 
 function PageTreeItem({ page, depth }: PageTreeItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+    useClickOutside(menuRef, () => setMenuOpen(false));
   const [dropZone, setDropZone] = useState<DropZone>(null);
 
   const {
@@ -37,6 +40,7 @@ function PageTreeItem({ page, depth }: PageTreeItemProps) {
   return (
     <div>
       <div
+        ref={menuRef}
         draggable
         onDragStart={(e) => {
           e.dataTransfer.setData("text/plain", page.id);
@@ -67,7 +71,7 @@ function PageTreeItem({ page, depth }: PageTreeItemProps) {
         }}
         className={`group relative flex items-center rounded-md ${
           selectedPageId === page.id ? "bg-zinc-800" : "hover:bg-zinc-800"
-        } ${dropZone === "inside" ? "outline outline-2 outline-blue-500" : ""} ${
+        } ${dropZone === "inside" ? "outline-2 outline-blue-500" : ""} ${
           dropZone === "before" ? "border-t-2 border-blue-500" : ""
         } ${dropZone === "after" ? "border-b-2 border-blue-500" : ""}`}
         style={{ paddingLeft: depth * 14 }}
@@ -93,7 +97,7 @@ function PageTreeItem({ page, depth }: PageTreeItemProps) {
           <span className="truncate text-sm">{page.title || "Untitled"}</span>
         </button>
 
-        <div className="mr-1 hidden items-center gap-0.5 group-hover:flex">
+        <div className="mr-1 flex items-center gap-0.5 md:hidden md:group-hover:flex">
           <button
             onClick={() => addChildPage(page.id)}
             className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100"

@@ -9,6 +9,9 @@ type UIStore = {
 
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
+
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
 };
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -31,5 +34,12 @@ export const useUIStore = create<UIStore>((set) => ({
   setSettingsOpen: (open) =>
     set({
       settingsOpen: open,
+    }),
+
+  sidebarOpen: false,
+
+  setSidebarOpen: (open) =>
+    set({
+      sidebarOpen: open,
     }),
 }));
