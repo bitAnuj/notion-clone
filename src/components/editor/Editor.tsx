@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { MoreHorizontal, ImagePlus, X } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
-import NotionEditor from "./NotionEditor";
+import CollaborativeEditor from "./CollaborativeEditor";
 import IconPicker from "./IconPicker";
 import Breadcrumbs from "./Breadcrumbs";
 import PageContextMenu from "../ui/PageContextMenu";
@@ -22,7 +22,7 @@ function Editor() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-    useClickOutside(menuRef, () => setMenuOpen(false));
+  useClickOutside(menuRef, () => setMenuOpen(false));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,7 +154,7 @@ function Editor() {
           Last updated {new Date(page.updatedAt).toLocaleString()}
         </p>
 
-        <NotionEditor />
+        <CollaborativeEditor key={page.id} pageId={page.id} />
       </div>
     </div>
   );
