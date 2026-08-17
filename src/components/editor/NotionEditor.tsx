@@ -6,7 +6,6 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
 import Callout from "./callout/Callout";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
@@ -30,17 +29,30 @@ import { usePageStore } from "../../store/usePageStore";
 import SlashCommand from "./slash-command/SlashCommand";
 import BlockDragHandle from "./BlockDragHandle";
 import { createPageMention } from "./mention/PageMention";
+import { Collaboration } from "@tiptap/extension-collaboration";
+import { CollaborationCursor } from "@tiptap/extension-collaboration-cursor";
+import * as Y from "yjs";
 
 const lowlight = createLowlight(common);
-function NotionEditor() {
-  const { pages, selectedPageId, updateContent, selectPage } = usePageStore();
 
-  const page = pages.find((p) => p.id === selectedPageId);
+function NotionEditor({
+  pageId,
+  yFragment,
+  provider,
+  collabUser,
+}: {
+  pageId: string;
+  yFragment: Y.XmlFragment;
+  provider: any;
+  collabUser: { id: string; name: string; color: string };
+}) {
+  // Guard: wait for provider and fragment to be ready
+  if (!provider || !yFragment) return null;
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Always holds the latest pages list, so the @ mention menu
-  // can see newly created pages without rebuilding the editor.
+  // For @ mentions - needs fresh pages list
+  const { pages } = usePageStore();
   const pagesRef = useRef(pages);
   useEffect(() => {
     pagesRef.current = pages;
@@ -67,12 +79,6 @@ function NotionEditor() {
           class: "rounded-lg",
         },
       }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-blue-400 underline cursor-pointer",
-        },
-      }),
       Callout,
       Highlight,
       TextAlign.configure({
@@ -95,9 +101,12 @@ function NotionEditor() {
       FileBlock,
       SlashCommand,
       createPageMention(pagesRef),
+      Collaboration.configure({ fragment: yFragment }),
+      CollaborationCursor.configure({
+        provider,
+        user: { name: collabUser.name, color: collabUser.color },
+      }),
     ],
-
-    content: page?.content || "<p></p>",
 
     editorProps: {
       attributes: {
@@ -111,21 +120,22 @@ function NotionEditor() {
     },
 
     onUpdate({ editor }) {
-      if (!page) return;
-      updateContent(page.id, editor.getHTML());
+      const { updateContent } = usePageStore.getState();
+      updateContent(pageId, editor.getHTML());
     },
   });
 
+  // Seed content from localStorage on first sync
+  const seededRef = useRef(false);
   useEffect(() => {
-    if (!editor || !page) return;
-
-    if (editor.getHTML() !== page.content) {
-      editor.commands.setContent(page.content || "<p></p>", {
-        emitUpdate: false,
-      });
+    if (!editor || seededRef.current) return;
+    const { pages } = usePageStore.getState();
+    const page = pages.find((p) => p.id === pageId);
+    if (page?.content && yFragment.length === 0) {
+      editor.commands.setContent(page.content);
+      seededRef.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPageId]);
+  }, [editor, pageId, yFragment.length]);
 
   // Clicking a mention pill navigates to that page.
   useEffect(() => {
@@ -139,12 +149,12 @@ function NotionEditor() {
       if (!target) return;
 
       const id = target.getAttribute("data-id");
-      if (id) selectPage(id);
+      if (id) usePageStore.getState().selectPage(id);
     }
 
     container.addEventListener("click", onClick);
     return () => container.removeEventListener("click", onClick);
-  }, [selectPage]);
+  }, []);
 
   if (!editor) return null;
 
@@ -156,7 +166,7 @@ function NotionEditor() {
     <div ref={containerRef} className="relative">
       <button
         onClick={() =>
-          exportPageAsMarkdown(page?.title ?? "Untitled", editor.getHTML())
+          exportPageAsMarkdown(pageId, editor.getHTML())
         }
         className="mb-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
       >
