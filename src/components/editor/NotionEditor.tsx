@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
 import Callout from "./callout/Callout";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
@@ -24,44 +25,39 @@ import FileBlock from "./file/FileBlock";
 import SelectionToolbar from "./SelectionToolbar";
 import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { usePageStore } from "../../store/usePageStore";
 import SlashCommand from "./slash-command/SlashCommand";
 import BlockDragHandle from "./BlockDragHandle";
 import { createPageMention } from "./mention/PageMention";
-import { Collaboration } from "@tiptap/extension-collaboration";
-import { CollaborationCursor } from "@tiptap/extension-collaboration-cursor";
-import * as Y from "yjs";
+import { useLiveblocksExtension } from "@liveblocks/react-tiptap";
 
 const lowlight = createLowlight(common);
 
-function NotionEditor({
-  pageId,
-  yFragment,
-  provider,
-  collabUser,
-}: {
-  pageId: string;
-  yFragment: Y.XmlFragment;
-  provider: any;
-  collabUser: { id: string; name: string; color: string };
-}) {
-  // Guard: wait for provider and fragment to be ready
-  if (!provider || !yFragment) return null;
+function NotionEditor({ pageId }: { pageId: string }) {
+  const { pages, updateContent, selectPage } = usePageStore();
+
+  const page = pages.find((p) => p.id === pageId);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // For @ mentions - needs fresh pages list
-  const { pages } = usePageStore();
-  const pagesRef = useRef(pages);
+  // Always holds the latest pages list, so the @ mention menu
+  // can see newly created pages without rebuilding the editor.
+  const pagesRef = useMemo(() => ({ current: pages }), []);
   useEffect(() => {
     pagesRef.current = pages;
   }, [pages]);
 
+  const liveblocks = useLiveblocksExtension({
+    initialContent: page?.content || "<p></p>",
+  });
+
   const editor = useEditor({
     extensions: [
+      liveblocks,
       StarterKit.configure({
         codeBlock: false,
+        undoRedo: false,
       }),
       CodeBlockLowlight.configure({
         lowlight,
@@ -77,6 +73,12 @@ function NotionEditor({
       Image.configure({
         HTMLAttributes: {
           class: "rounded-lg",
+        },
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: "text-blue-400 underline cursor-pointer",
         },
       }),
       Callout,
@@ -101,11 +103,6 @@ function NotionEditor({
       FileBlock,
       SlashCommand,
       createPageMention(pagesRef),
-      Collaboration.configure({ fragment: yFragment }),
-      CollaborationCursor.configure({
-        provider,
-        user: { name: collabUser.name, color: collabUser.color },
-      }),
     ],
 
     editorProps: {
@@ -120,22 +117,9 @@ function NotionEditor({
     },
 
     onUpdate({ editor }) {
-      const { updateContent } = usePageStore.getState();
       updateContent(pageId, editor.getHTML());
     },
   });
-
-  // Seed content from localStorage on first sync
-  const seededRef = useRef(false);
-  useEffect(() => {
-    if (!editor || seededRef.current) return;
-    const { pages } = usePageStore.getState();
-    const page = pages.find((p) => p.id === pageId);
-    if (page?.content && yFragment.length === 0) {
-      editor.commands.setContent(page.content);
-      seededRef.current = true;
-    }
-  }, [editor, pageId, yFragment.length]);
 
   // Clicking a mention pill navigates to that page.
   useEffect(() => {
@@ -149,12 +133,12 @@ function NotionEditor({
       if (!target) return;
 
       const id = target.getAttribute("data-id");
-      if (id) usePageStore.getState().selectPage(id);
+      if (id) selectPage(id);
     }
 
     container.addEventListener("click", onClick);
     return () => container.removeEventListener("click", onClick);
-  }, []);
+  }, [selectPage]);
 
   if (!editor) return null;
 
@@ -166,7 +150,7 @@ function NotionEditor({
     <div ref={containerRef} className="relative">
       <button
         onClick={() =>
-          exportPageAsMarkdown(pageId, editor.getHTML())
+          exportPageAsMarkdown(page?.title ?? "Untitled", editor.getHTML())
         }
         className="mb-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
       >
