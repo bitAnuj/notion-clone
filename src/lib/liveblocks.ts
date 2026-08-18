@@ -1,9 +1,24 @@
 import { createClient } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
+import { getOrCreateCollabUser } from "./collabUser";
 
 const client = createClient({
   throttle: 16,
-  authEndpoint: "/api/liveblocks-auth",
+  authEndpoint: async (room) => {
+    const user = getOrCreateCollabUser();
+
+    const response = await fetch("/api/liveblocks-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        room,
+        userId: user.id,
+        userName: user.name,
+      }),
+    });
+
+    return response.json();
+  },
 });
 
 type Presence = {
