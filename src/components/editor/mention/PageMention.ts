@@ -5,7 +5,7 @@ import MentionList, { type MentionListRef } from "./MentionList";
 import type { Page } from "../../../types/page";
 
 export function createPageMention(pagesRef: { current: Page[] }) {
-  return Mention.configure({
+  return Mention.extend({ name: "pageMention" }).configure({
     HTMLAttributes: {
       class:
         "rounded bg-zinc-700 px-1.5 py-0.5 text-blue-300 cursor-pointer",

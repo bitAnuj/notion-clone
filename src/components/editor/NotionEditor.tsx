@@ -6,12 +6,12 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
 import Callout from "./callout/Callout";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
+import PresenceAvatars from "./PresenceAvatars";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -75,12 +75,6 @@ function NotionEditor({ pageId }: { pageId: string }) {
           class: "rounded-lg",
         },
       }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-blue-400 underline cursor-pointer",
-        },
-      }),
       Callout,
       Highlight,
       TextAlign.configure({
@@ -128,8 +122,8 @@ function NotionEditor({ pageId }: { pageId: string }) {
 
     function onClick(e: MouseEvent) {
       const target = (e.target as HTMLElement).closest(
-        '[data-type="mention"]'
-      );
+              '[data-type="pageMention"]'
+            );
       if (!target) return;
 
       const id = target.getAttribute("data-id");
@@ -148,15 +142,19 @@ function NotionEditor({ pageId }: { pageId: string }) {
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        onClick={() =>
-          exportPageAsMarkdown(page?.title ?? "Untitled", editor.getHTML())
-        }
-        className="mb-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-      >
-        <Download size={14} />
-        Export as Markdown
-      </button>
+      <div className="mb-2 flex items-center justify-between">
+              <button
+                onClick={() =>
+                  exportPageAsMarkdown(page?.title ?? "Untitled", editor.getHTML())
+                }
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+              >
+                <Download size={14} />
+                Export as Markdown
+              </button>
+
+              <PresenceAvatars />
+            </div>
       <SelectionToolbar editor={editor} />
       <BlockDragHandle editor={editor} containerRef={containerRef} />
       <EditorContent editor={editor} />
