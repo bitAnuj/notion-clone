@@ -3,12 +3,14 @@ import { Download, Upload, X } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import { useUIStore } from "../../store/useUIStore";
 import { exportAllPages, importAllPages } from "../../lib/backup";
+import { getOrCreateCollabUser, updateCollabUserName } from "../../lib/collabUser";
 
 function SettingsPanel() {
   const { settingsOpen, setSettingsOpen } = useUIStore();
   const { pages, setAllPages } = usePageStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
+  const [name, setName] = useState(() => getOrCreateCollabUser().name);
 
   if (!settingsOpen) return null;
 
@@ -30,6 +32,12 @@ function SettingsPanel() {
     e.target.value = "";
   };
 
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setName(value);
+    updateCollabUserName(value || "Anonymous");
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/40 p-20"
@@ -48,6 +56,20 @@ function SettingsPanel() {
             <X size={18} />
           </button>
         </div>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Your name
+        </p>
+        <input
+          value={name}
+          onChange={handleNameChange}
+          placeholder="Anonymous"
+          className="mb-4 w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+        />
+        <p className="mb-4 text-xs text-zinc-500">
+          This is what other people see next to your cursor and avatar
+          while you're editing together.
+        </p>
 
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Backup

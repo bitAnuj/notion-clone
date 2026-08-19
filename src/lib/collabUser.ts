@@ -43,3 +43,10 @@ export function getOrCreateCollabUser(): CollabUser {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   return user;
 }
+
+export function updateCollabUserName(name: string): CollabUser {
+  const current = getOrCreateCollabUser();
+  const updated = { ...current, name };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  return updated;
+}
