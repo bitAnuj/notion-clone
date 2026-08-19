@@ -4,6 +4,7 @@ import Navbar from "../components/navbar/Navbar";
 import CommandPalette from "../components/modals/CommandPalette";
 import Sidebar from "../components/sidebar/Sidebar";
 import { usePageStore } from "../store/usePageStore";
+import { useUIStore } from "../store/useUIStore";
 
 type Props = {
   children: ReactNode;
@@ -11,30 +12,36 @@ type Props = {
 
 function MainLayout({ children }: Props) {
   const { addPage, pages, selectedPageId } = usePageStore();
+  const { theme } = useUIStore();
 
   useEffect(() => {
-      function handleShortcut(e: KeyboardEvent) {
-        const target = e.target as HTMLElement;
-        const isTyping =
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable;
+    function handleShortcut(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
 
-        if (!isTyping && e.key.toLowerCase() === "n") {
-          e.preventDefault();
-          addPage();
-        }
+      if (!isTyping && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        addPage();
       }
+    }
 
-      window.addEventListener("keydown", handleShortcut);
-      return () => window.removeEventListener("keydown", handleShortcut);
-    }, [addPage]);
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [addPage]);
+
   useEffect(() => {
-      const currentPage = pages.find((p) => p.id === selectedPageId);
-      document.title = currentPage?.title
-        ? `${currentPage.title} — Notion Clone`
-        : "Notion Clone";
-    }, [pages, selectedPageId]);
+    const currentPage = pages.find((p) => p.id === selectedPageId);
+    document.title = currentPage?.title
+      ? `${currentPage.title} — Notion Clone`
+      : "Notion Clone";
+  }, [pages, selectedPageId]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+  }, [theme]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-white">

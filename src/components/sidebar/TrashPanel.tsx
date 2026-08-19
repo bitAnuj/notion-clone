@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import { useUIStore } from "../../store/useUIStore";
@@ -11,7 +12,7 @@ function TrashPanel() {
 
   const trashedPages = pages.filter((page) => page.trashed);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/50 p-4 pt-24 backdrop-blur-[2px]"
       onClick={() => setTrashOpen(false)}
@@ -93,7 +94,8 @@ function TrashPanel() {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
