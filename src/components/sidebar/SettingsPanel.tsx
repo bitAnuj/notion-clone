@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download, Upload, X } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import { useUIStore } from "../../store/useUIStore";
@@ -38,7 +39,7 @@ function SettingsPanel() {
     updateCollabUserName(value || "Anonymous");
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/40 p-20"
       onClick={() => setSettingsOpen(false)}
@@ -78,7 +79,7 @@ function SettingsPanel() {
         <div className="space-y-2">
           <button
             onClick={() => exportAllPages(pages)}
-            className="flex w-full items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800"
+            className="flex w-full items-center gap-2 rounded-md border border-zinc-300-700 px-3 py-2 text-sm hover:bg-zinc-300"
           >
             <Download size={16} />
             Export all pages as backup
@@ -86,7 +87,7 @@ function SettingsPanel() {
 
           <button
             onClick={handleImportClick}
-            className="flex w-full items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800"
+            className="flex w-full items-center gap-2 rounded-md border border-zinc-300-700 px-3 py-2 text-sm hover:bg-zinc-300"
           >
             <Upload size={16} />
             Restore from backup file
@@ -105,7 +106,8 @@ function SettingsPanel() {
           <p className="mt-3 text-xs text-zinc-400">{message}</p>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

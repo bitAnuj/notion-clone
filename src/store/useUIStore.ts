@@ -1,5 +1,13 @@
 import { create } from "zustand";
 
+type Theme = "dark" | "light";
+
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const stored = localStorage.getItem("notion-clone-theme");
+  return stored === "light" ? "light" : "dark";
+}
+
 type UIStore = {
   commandOpen: boolean;
   setCommandOpen: (open: boolean) => void;
@@ -12,9 +20,12 @@ type UIStore = {
 
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+
+  theme: Theme;
+  toggleTheme: () => void;
 };
 
-export const useUIStore = create<UIStore>((set) => ({
+export const useUIStore = create<UIStore>((set, get) => ({
   commandOpen: false,
 
   setCommandOpen: (open) =>
@@ -42,4 +53,12 @@ export const useUIStore = create<UIStore>((set) => ({
     set({
       sidebarOpen: open,
     }),
+
+  theme: getInitialTheme(),
+
+  toggleTheme: () => {
+    const next = get().theme === "dark" ? "light" : "dark";
+    localStorage.setItem("notion-clone-theme", next);
+    set({ theme: next });
+  },
 }));

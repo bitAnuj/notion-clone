@@ -1,8 +1,10 @@
-import { Search, Bell, Settings, Menu } from "lucide-react";
+import { Search, Settings, Menu, Sun, Moon } from "lucide-react";
 import { useUIStore } from "../../store/useUIStore";
+import ActivityDropdown from "./ActivityDropdown";
 
 function Navbar() {
-  const { setCommandOpen, setSettingsOpen, setSidebarOpen } = useUIStore();
+  const { setCommandOpen, setSettingsOpen, setSidebarOpen, theme, toggleTheme } =
+    useUIStore();
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-3 backdrop-blur-sm md:px-6">
@@ -28,9 +30,15 @@ function Navbar() {
           </kbd>
         </button>
 
-        <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100">
-          <Bell size={18} />
+        <button
+          onClick={toggleTheme}
+          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+
+        <ActivityDropdown />
 
         <button
           onClick={() => setSettingsOpen(true)}

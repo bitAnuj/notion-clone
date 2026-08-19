@@ -325,3 +325,74 @@ button, a, input, select {
   color: #a1a1aa;
   font-style: italic;
 }
+/* ========================================================================
+   LIGHT MODE
+   These rules override the (default dark) Tailwind utility classes and
+   raw CSS colors above, whenever the <html> tag has the "light" class.
+   ======================================================================== */
+
+.light .bg-zinc-950 { background-color: #ffffff; }
+.light .bg-zinc-900 { background-color: #f9fafb; }
+.light .bg-zinc-900\/80 { background-color: rgba(249, 250, 251, 0.85); }
+.light .bg-zinc-800 { background-color: #f3f4f6; }
+.light .bg-zinc-700 { background-color: #e5e7eb; }
+.light .bg-black\/40 { background-color: rgba(0, 0, 0, 0.2); }
+.light .bg-black\/50 { background-color: rgba(0, 0, 0, 0.25); }
+.light .bg-black\/60 { background-color: rgba(0, 0, 0, 0.3); }
+
+.light .border-zinc-900 { border-color: #e5e7eb; }
+.light .border-zinc-800 { border-color: #e5e7eb; }
+.light .border-zinc-700 { border-color: #d1d5db; }
+.light .border-zinc-600 { border-color: #9ca3af; }
+.light .focus\:border-zinc-500:focus { border-color: #6b7280; }
+.light .hover\:border-zinc-600:hover { border-color: #9ca3af; }
+
+.light .text-white { color: #18181b; }
+.light .text-zinc-100 { color: #18181b; }
+.light .text-zinc-200 { color: #27272a; }
+.light .text-zinc-300 { color: #3f3f46; }
+.light .text-zinc-400 { color: #52525b; }
+.light .text-zinc-500 { color: #71717a; }
+.light .text-zinc-600 { color: #a1a1aa; }
+.light .placeholder\:text-zinc-500::placeholder { color: #a1a1aa; }
+.light .placeholder\:text-zinc-600::placeholder { color: #a1a1aa; }
+
+.light .hover\:bg-zinc-700:hover { background-color: #e5e7eb; }
+.light .hover\:bg-zinc-750:hover { background-color: #e5e7eb; }
+.light .hover\:bg-zinc-800:hover { background-color: #f3f4f6; }
+.light .hover\:bg-black\/80:hover { background-color: rgba(0, 0, 0, 0.4); }
+.light .hover\:text-zinc-100:hover { color: #18181b; }
+.light .hover\:text-zinc-200:hover { color: #27272a; }
+
+/* Editor content (callouts, code blocks, tables, columns, etc.) */
+.light .ProseMirror blockquote,
+.light blockquote {
+  border-left-color: #d1d5db;
+  color: #52525b;
+}
+.light .ProseMirror code,
+.light code {
+  background: #f3f4f6;
+}
+.light .ProseMirror pre,
+.light pre {
+  background: #18181b;
+  color: #f4f4f5;
+}
+.light .ProseMirror table td,
+.light .ProseMirror table th {
+  border-color: #d1d5db;
+}
+.light .ProseMirror table th {
+  background: #f3f4f6;
+}
+.light .ProseMirror [data-type="column"] {
+  border-color: #d1d5db;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-color: #ffffff;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
