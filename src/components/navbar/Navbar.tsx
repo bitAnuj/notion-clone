@@ -15,7 +15,7 @@ function Navbar() {
         >
           <Menu size={20} />
         </button>
-        <h1 className="text-lg font-semibold tracking-tight">Notion Clone</h1>
+        <h1 className="text-lg font-semibold tracking-tight">VicharHub</h1>
       </div>
 
       <div className="flex items-center gap-1 md:gap-2">

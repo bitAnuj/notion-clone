@@ -31,7 +31,7 @@ function Sidebar() {
         }`}
       >
         <div className="flex items-center justify-between p-2 md:hidden">
-          <span className="px-2 text-sm font-semibold">Notion Clone</span>
+          <span className="px-2 text-sm font-semibold">VicharHub</span>
           <button
             onClick={() => setSidebarOpen(false)}
             className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800"
