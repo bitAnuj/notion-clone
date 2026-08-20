@@ -1,7 +1,7 @@
 import type { Page } from "../types/page";
 
 const gettingStartedContent = `
-<h1>Welcome to your Notion Clone 👋</h1>
+<h1>Welcome to VicharHub 👋</h1>
 <p>This is your first page. Here's a quick tour of what you can do.</p>
 
 <h2>Try the slash menu</h2>
@@ -23,6 +23,7 @@ const gettingStartedContent = `
 
 <p>Have fun building your workspace!</p>
 `;
+
 
 export const pages: Page[] = [
   {

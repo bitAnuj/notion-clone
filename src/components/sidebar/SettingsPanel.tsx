@@ -49,10 +49,10 @@ function SettingsPanel() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Settings</h2>
+          <h2 className="text-lg font-semibold text-zinc-100">Settings</h2>
           <button
             onClick={() => setSettingsOpen(false)}
-            className="rounded p-1 hover:bg-zinc-800"
+            className="rounded p-1 hover:bg-zinc-800 text-zinc-400"
           >
             <X size={18} />
           </button>
@@ -65,7 +65,7 @@ function SettingsPanel() {
           value={name}
           onChange={handleNameChange}
           placeholder="Anonymous"
-          className="mb-4 w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+          className="mb-4 w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 placeholder:text-zinc-600"
         />
         <p className="mb-4 text-xs text-zinc-500">
           This is what other people see next to your cursor and avatar
@@ -79,7 +79,7 @@ function SettingsPanel() {
         <div className="space-y-2">
           <button
             onClick={() => exportAllPages(pages)}
-            className="flex w-full items-center gap-2 rounded-md border border-zinc-300-700 px-3 py-2 text-sm hover:bg-zinc-300"
+            className="flex w-full items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700"
           >
             <Download size={16} />
             Export all pages as backup
@@ -87,7 +87,7 @@ function SettingsPanel() {
 
           <button
             onClick={handleImportClick}
-            className="flex w-full items-center gap-2 rounded-md border border-zinc-300-700 px-3 py-2 text-sm hover:bg-zinc-300"
+            className="flex w-full items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700"
           >
             <Upload size={16} />
             Restore from backup file

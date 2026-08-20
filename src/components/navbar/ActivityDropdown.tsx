@@ -1,7 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
-import { useClickOutside } from "../../lib/useClickOutside";
 import PageIcon from "../editor/PageIcon";
 
 function timeAgo(date: Date): string {
@@ -20,7 +19,20 @@ function ActivityDropdown() {
   const [open, setOpen] = useState(false);
   const { pages, selectPage } = usePageStore();
   const menuRef = useRef<HTMLDivElement>(null);
-  useClickOutside(menuRef, () => setOpen(false));
+
+  // Custom click outside that ignores scroll
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
 
   const recentPages = [...pages]
     .filter((p) => !p.trashed)
@@ -40,7 +52,7 @@ function ActivityDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-72 rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
+        <div className="absolute right-0 top-11 z-[100] w-72 rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
           <p className="border-b border-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
             Recent activity
           </p>

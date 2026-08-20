@@ -48,7 +48,7 @@ function TrashPanel() {
             )}
             <button
               onClick={() => setTrashOpen(false)}
-              className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+              className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
             >
               <X size={16} />
             </button>

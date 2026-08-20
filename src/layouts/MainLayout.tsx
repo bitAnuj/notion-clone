@@ -35,8 +35,8 @@ function MainLayout({ children }: Props) {
   useEffect(() => {
     const currentPage = pages.find((p) => p.id === selectedPageId);
     document.title = currentPage?.title
-      ? `${currentPage.title} — Notion Clone`
-      : "Notion Clone";
+      ? `${currentPage.title} — VicharHub`
+      : "VicharHub";
   }, [pages, selectedPageId]);
 
   useEffect(() => {

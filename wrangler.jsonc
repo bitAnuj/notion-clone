@@ -1,5 +1,5 @@
 {
-  "name": "notion-clone",
+  "name": "vicharhub",
   "compatibility_date": "2026-08-12",
   "main": "worker/index.ts",
   "assets": {

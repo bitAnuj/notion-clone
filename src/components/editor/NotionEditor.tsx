@@ -25,12 +25,14 @@ import FileBlock from "./file/FileBlock";
 import SelectionToolbar from "./SelectionToolbar";
 import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePageStore } from "../../store/usePageStore";
 import SlashCommand from "./slash-command/SlashCommand";
 import BlockDragHandle from "./BlockDragHandle";
 import { createPageMention } from "./mention/PageMention";
 import { useLiveblocksExtension } from "@liveblocks/react-tiptap";
+import LinkUnfurl from "./LinkUnfurl";
+import LinkPreview from "./LinkPreview";
 
 const lowlight = createLowlight(common);
 
@@ -47,6 +49,12 @@ function NotionEditor({ pageId }: { pageId: string }) {
   useEffect(() => {
     pagesRef.current = pages;
   }, [pages]);
+
+  // Link hover preview state
+  const [hoveredLink, setHoveredLink] = useState<{
+    metadata: { title: string; description: string; image?: string; favicon?: string; url: string };
+    position: { x: number; y: number };
+  } | null>(null);
 
   const liveblocks = useLiveblocksExtension({
     initialContent: page?.content || "<p></p>",
@@ -97,6 +105,7 @@ function NotionEditor({ pageId }: { pageId: string }) {
       FileBlock,
       SlashCommand,
       createPageMention(pagesRef),
+      LinkUnfurl,
     ],
 
     editorProps: {
@@ -127,12 +136,54 @@ function NotionEditor({ pageId }: { pageId: string }) {
       if (!target) return;
 
       const id = target.getAttribute("data-id");
-      if (id) selectPage(id);
+      if (id) {
+        // Check if page exists and isn't trashed
+        const page = pages.find((p) => p.id === id);
+        if (page && !page.trashed) {
+          selectPage(id);
+        }
+      }
     }
 
     container.addEventListener("click", onClick);
     return () => container.removeEventListener("click", onClick);
-  }, [selectPage]);
+  }, [selectPage, pages]);
+
+  // Link hover preview
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    function onMouseOver(e: MouseEvent) {
+      const link = (e.target as HTMLElement).closest('a[data-description]') as HTMLAnchorElement | null;
+      if (!link) return;
+
+      const rect = link.getBoundingClientRect();
+      setHoveredLink({
+        metadata: {
+          title: link.title || link.href,
+          description: link.dataset.description || "",
+          image: link.dataset.image || undefined,
+          favicon: link.dataset.favicon || undefined,
+          url: link.href,
+        },
+        position: { x: rect.left + window.scrollX, y: rect.bottom + window.scrollY + 8 },
+      });
+    }
+
+    function onMouseOut(e: MouseEvent) {
+      const link = (e.target as HTMLElement).closest('a[data-description]') as HTMLAnchorElement | null;
+      if (!link) return;
+      setHoveredLink(null);
+    }
+
+    container.addEventListener("mouseover", onMouseOver);
+    container.addEventListener("mouseout", onMouseOut);
+    return () => {
+      container.removeEventListener("mouseover", onMouseOver);
+      container.removeEventListener("mouseout", onMouseOut);
+    };
+  }, []);
 
   if (!editor) return null;
 
@@ -158,6 +209,7 @@ function NotionEditor({ pageId }: { pageId: string }) {
       <SelectionToolbar editor={editor} />
       <BlockDragHandle editor={editor} containerRef={containerRef} />
       <EditorContent editor={editor} />
+      <LinkPreview metadata={hoveredLink?.metadata ?? null} position={hoveredLink?.position ?? null} />
       <p className="mt-6 text-xs text-zinc-600">
         {wordCount} words · {charCount} characters
       </p>

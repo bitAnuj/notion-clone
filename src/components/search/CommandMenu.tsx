@@ -47,7 +47,7 @@ function CommandMenu() {
                   selectPage(page.id);
                   setCommandOpen(false);
                 }}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800 rounded-md px-2 py-1.5"
               >
                 <span><PageIcon icon={page.icon} /></span>
                 <span>{page.title || "Untitled"}</span>
