@@ -24,15 +24,24 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
 
     useEffect(() => {
       setSelectedIndex(0);
-      if (buttonRefs.current[0]) {
-        buttonRefs.current[0]?.focus();
-      }
     }, [items]);
 
-    // Scroll selected item into view
+    // Scroll selected item into view — done manually (not scrollIntoView)
+    // since that can behave unreliably inside a Tippy.js-positioned popup.
     useEffect(() => {
-      if (buttonRefs.current[selectedIndex]) {
-        buttonRefs.current[selectedIndex]?.scrollIntoView({ block: "nearest" });
+      const list = listRef.current;
+      const button = buttonRefs.current[selectedIndex];
+      if (!list || !button) return;
+
+      const buttonTop = button.offsetTop;
+      const buttonBottom = buttonTop + button.offsetHeight;
+      const visibleTop = list.scrollTop;
+      const visibleBottom = visibleTop + list.clientHeight;
+
+      if (buttonBottom > visibleBottom) {
+        list.scrollTop = buttonBottom - list.clientHeight;
+      } else if (buttonTop < visibleTop) {
+        list.scrollTop = buttonTop;
       }
     }, [selectedIndex]);
 
@@ -82,7 +91,9 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
               onClick={() => selectItem(index)}
               onMouseEnter={() => setSelectedIndex(index)}
               className={`flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors ${
-                isSelected ? "bg-blue-600 text-white" : "hover:bg-zinc-800"
+                isSelected
+                  ? "bg-blue-600 text-white"
+                  : "text-zinc-200 hover:bg-zinc-800"
               }`}
               role="option"
               aria-selected={isSelected}
@@ -96,7 +107,11 @@ const CommandList = forwardRef<CommandListRef, CommandListProps>(
                 <span className="block truncate text-sm font-medium">
                   {item.title}
                 </span>
-                <span className="block truncate text-xs">
+                <span
+                  className={`block truncate text-xs ${
+                    isSelected ? "text-blue-100" : "text-zinc-500"
+                  }`}
+                >
                   {item.description}
                 </span>
               </span>
