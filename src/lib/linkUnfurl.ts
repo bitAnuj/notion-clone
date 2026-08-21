@@ -17,7 +17,13 @@ function getCache(): Record<string, LinkMetadata & { cachedAt: number }> {
     return {};
   }
 }
-
+export function getCachedLinkMetadata(url: string): LinkMetadata | null {
+  const cache = getCache();
+  const entry = cache[url];
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > CACHE_DURATION) return null;
+  return entry;
+}
 export async function fetchLinkMetadata(url: string): Promise<LinkMetadata | null> {
   // Check cache first
   const cache = getCache();

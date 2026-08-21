@@ -1,6 +1,6 @@
 import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
-import { fetchLinkMetadata, getFavicon } from "../../lib/linkUnfurl";
+import { fetchLinkMetadata } from "../../lib/linkUnfurl";
 
 export const LinkUnfurl = Extension.create({
   name: "linkUnfurl",
@@ -10,42 +10,38 @@ export const LinkUnfurl = Extension.create({
       new Plugin({
         props: {
           handlePaste: (view, event) => {
-            console.log("LinkUnfurl handlePaste called");
             const text = event.clipboardData?.getData("text/plain")?.trim();
-            console.log("Pasted text:", text);
             if (!text) return false;
 
-            // Check if pasted content is a URL
             const urlRegex = /^https?:\/\/\S+$/;
-            const isUrl = urlRegex.test(text);
-            console.log("Is URL:", isUrl);
-            if (!isUrl) return false;
+            if (!urlRegex.test(text)) return false;
 
-            console.log("Detected URL, fetching metadata...");
+            // Insert the link immediately and safely, using the link
+            // MARK (not a node — Link is a mark in this schema). We
+            // don't wait on the metadata fetch to do this, since in a
+            // live collaborative document, waiting on an async fetch
+            // before inserting risks the cursor position becoming stale
+            // if anyone (including you) types in the meantime.
+            const { state, dispatch } = view;
+            const { schema, selection } = state;
+            const linkMark = schema.marks.link;
 
-            // Fetch metadata async
-            fetchLinkMetadata(text).then((metadata) => {
-              console.log("Metadata fetched:", metadata);
-              if (!metadata) return;
+            if (!linkMark) return false;
 
-              const { state, dispatch } = view;
-              const { selection } = state;
+            const textNode = schema.text(text, [
+              linkMark.create({ href: text }),
+            ]);
 
-              // Insert link with metadata
-              dispatch(
-                state.tr.replaceWith(selection.from, selection.to,
-                  state.schema.nodes.link.create({
-                    href: text,
-                    title: metadata.title,
-                    "data-description": metadata.description,
-                    "data-image": metadata.image || "",
-                    "data-favicon": getFavicon(text),
-                  })
-                )
-              );
-            });
+            dispatch(
+              state.tr.replaceWith(selection.from, selection.to, textNode)
+            );
 
-            return true; // Prevent default paste
+            // Separately, fetch metadata in the background purely to
+            // warm the cache — this makes the hover preview available
+            // once it resolves, without touching the document at all.
+            fetchLinkMetadata(text);
+
+            return true;
           },
         },
       }),

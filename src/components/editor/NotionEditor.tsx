@@ -1,6 +1,8 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import CodeBlockView from "./CodeBlockView";
 import { createLowlight, common } from "lowlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
@@ -33,6 +35,7 @@ import { createPageMention } from "./mention/PageMention";
 import { useLiveblocksExtension } from "@liveblocks/react-tiptap";
 import LinkUnfurl from "./LinkUnfurl";
 import LinkPreview from "./LinkPreview";
+import { getCachedLinkMetadata, fetchLinkMetadata } from "../../lib/linkUnfurl";
 
 const lowlight = createLowlight(common);
 
@@ -42,6 +45,10 @@ function NotionEditor({ pageId }: { pageId: string }) {
   const page = pages.find((p) => p.id === pageId);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const [hoveredLink, setHoveredLink] = useState<{
+    metadata: { title: string; description: string; image?: string; favicon?: string; url: string };
+    position: { x: number; y: number };
+  } | null>(null);
 
   // Always holds the latest pages list, so the @ mention menu
   // can see newly created pages without rebuilding the editor.
@@ -49,12 +56,6 @@ function NotionEditor({ pageId }: { pageId: string }) {
   useEffect(() => {
     pagesRef.current = pages;
   }, [pages]);
-
-  // Link hover preview state
-  const [hoveredLink, setHoveredLink] = useState<{
-    metadata: { title: string; description: string; image?: string; favicon?: string; url: string };
-    position: { x: number; y: number };
-  } | null>(null);
 
   const liveblocks = useLiveblocksExtension({
     initialContent: page?.content || "<p></p>",
@@ -67,9 +68,13 @@ function NotionEditor({ pageId }: { pageId: string }) {
         codeBlock: false,
         undoRedo: false,
       }),
-      CodeBlockLowlight.configure({
-        lowlight,
-      }),
+        CodeBlockLowlight.extend({
+          addNodeView() {
+            return ReactNodeViewRenderer(CodeBlockView);
+          },
+        }).configure({
+          lowlight,
+        }),
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === "heading") return "Heading";
@@ -154,26 +159,36 @@ function NotionEditor({ pageId }: { pageId: string }) {
     const container = containerRef.current;
     if (!container) return;
 
-    function onMouseOver(e: MouseEvent) {
-      const link = (e.target as HTMLElement).closest('a[data-description]') as HTMLAnchorElement | null;
-      if (!link) return;
+    let currentHref: string | null = null;
 
-      const rect = link.getBoundingClientRect();
-      setHoveredLink({
-        metadata: {
-          title: link.title || link.href,
-          description: link.dataset.description || "",
-          image: link.dataset.image || undefined,
-          favicon: link.dataset.favicon || undefined,
-          url: link.href,
-        },
-        position: { x: rect.left + window.scrollX, y: rect.bottom + window.scrollY + 8 },
+    function onMouseOver(e: MouseEvent) {
+      const target = (e.target as HTMLElement).closest("a");
+      if (!target) return;
+
+      const href = target.getAttribute("href");
+      if (!href) return;
+
+      currentHref = href;
+      const rect = target.getBoundingClientRect();
+      const position = { x: rect.left, y: rect.bottom + 6 };
+
+      const cached = getCachedLinkMetadata(href);
+      if (cached) {
+        setHoveredLink({ metadata: cached, position });
+        return;
+      }
+
+      fetchLinkMetadata(href).then((metadata) => {
+        if (metadata && currentHref === href) {
+          setHoveredLink({ metadata, position });
+        }
       });
     }
 
     function onMouseOut(e: MouseEvent) {
-      const link = (e.target as HTMLElement).closest('a[data-description]') as HTMLAnchorElement | null;
-      if (!link) return;
+      const target = (e.target as HTMLElement).closest("a");
+      if (!target) return;
+      currentHref = null;
       setHoveredLink(null);
     }
 
