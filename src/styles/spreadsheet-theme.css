@@ -1,0 +1,221 @@
+/* VicharHub Spreadsheet Theme: matches dark/light mode of the app */
+
+/* Outer container */
+.jss_container,
+.jexcel_container {
+  width: 100% !important;
+  font-family: inherit !important;
+}
+
+.jss_content,
+.jexcel_content {
+  overflow: auto !important;
+  border-radius: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 #18181b;
+}
+
+/* Base table */
+table.jss_worksheet,
+table.jexcel {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  font-size: 0.8125rem !important;
+  background-color: transparent !important;
+}
+
+/* ==========================================================================
+   Dark Mode Styles
+   jspreadsheet-ce v5 uses .jss_* classes (.jss_worksheet, .jss_content, etc.)
+   jspreadsheet-ce v4 uses .jexcel* classes
+   ========================================================================== */
+html.dark .jss_content,
+.dark .jss_content,
+html.dark .jexcel_content,
+.dark .jexcel_content {
+  background-color: #18181b !important; /* zinc-900 */
+  border: 1px solid #27272a !important; /* zinc-800 */
+}
+
+/* Column headers (A, B, C...) */
+html.dark .jss_worksheet > thead > tr > td,
+.dark .jss_worksheet > thead > tr > td,
+html.dark table.jexcel thead td,
+html.dark table.jexcel > thead > tr > td,
+.dark table.jexcel thead td,
+.dark table.jexcel > thead > tr > td {
+  background-color: #09090b !important; /* zinc-950 */
+  color: #e4e4e7 !important; /* zinc-200 - bright header */
+  border-top: 1px solid #27272a !important;
+  border-left: 1px solid #27272a !important;
+  border-right: 1px solid #27272a !important;
+  border-bottom: 1px solid #27272a !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+  user-select: none;
+  padding: 4px 8px !important;
+}
+
+/* Row headers (1, 2, 3...) */
+html.dark .jss_worksheet > tbody > tr > td:first-child,
+.dark .jss_worksheet > tbody > tr > td:first-child,
+html.dark table.jexcel tbody > tr > td.jexcel_row,
+html.dark table.jexcel tbody td:first-child,
+.dark table.jexcel tbody > tr > td.jexcel_row,
+.dark table.jexcel tbody td:first-child {
+  background-color: #09090b !important; /* zinc-950 */
+  color: #a1a1aa !important; /* zinc-400 */
+  border-top: 1px solid #27272a !important;
+  border-left: 1px solid #27272a !important;
+  border-right: 1px solid #27272a !important;
+  border-bottom: 1px solid #27272a !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  user-select: none;
+}
+
+/* All body cells */
+html.dark .jss_worksheet > tbody > tr > td,
+.dark .jss_worksheet > tbody > tr > td,
+html.dark .jss_worksheet td,
+.dark .jss_worksheet td,
+html.dark table.jexcel tbody > tr > td,
+.dark table.jexcel tbody > tr > td,
+html.dark table.jexcel td,
+.dark table.jexcel td {
+  background-color: #18181b !important; /* zinc-900 */
+  color: #f4f4f5 !important; /* zinc-100 - bright visible text */
+  border-top: 1px solid #27272a !important;
+  border-left: 1px solid #27272a !important;
+  border-right: 1px solid #27272a !important;
+  border-bottom: 1px solid #27272a !important;
+  padding: 5px 8px !important;
+  transition: background-color 0.1s ease;
+}
+
+/* Inputs and text inside cells */
+html.dark .jss_worksheet > tbody > tr > td > input,
+html.dark .jss_worksheet > tbody > tr > td > textarea,
+.dark .jss_worksheet > tbody > tr > td > input,
+.dark .jss_worksheet > tbody > tr > td > textarea {
+  color: #f4f4f5 !important;
+}
+
+/* Hover cell */
+html.dark .jss_worksheet > tbody > tr > td:hover:not(.selected),
+.dark .jss_worksheet > tbody > tr > td:hover:not(.selected),
+html.dark table.jexcel tbody > tr > td:hover:not(.selected),
+.dark table.jexcel tbody > tr > td:hover:not(.selected) {
+  background-color: #27272a !important; /* zinc-800 */
+}
+
+/* Selected cells */
+html.dark .jss_worksheet td.selected,
+html.dark .jss_worksheet td.highlight,
+.dark .jss_worksheet td.selected,
+.dark .jss_worksheet td.highlight,
+html.dark table.jexcel td.selected,
+html.dark table.jexcel td.highlight,
+.dark table.jexcel td.selected,
+.dark table.jexcel td.highlight {
+  background-color: rgba(99, 102, 241, 0.25) !important; /* indigo tinted */
+  color: #ffffff !important;
+}
+
+/* Active border / cursor */
+html.dark .jss_corner,
+html.dark .selection,
+.dark .jss_corner,
+.dark .selection,
+html.dark .jexcel_corner,
+html.dark .jexcel_border,
+.dark .jexcel_corner,
+.dark .jexcel_border {
+  border-color: #6366f1 !important; /* indigo-500 */
+}
+
+html.dark .jss_corner,
+.dark .jss_corner,
+html.dark .jexcel_corner,
+.dark .jexcel_corner {
+  background-color: #6366f1 !important;
+}
+
+/* In-cell editor (typing directly into cell) */
+html.dark .editor,
+html.dark .editor textarea,
+html.dark .jexcel_editor,
+html.dark .jexcel > tbody > tr > td > input,
+html.dark .jexcel_editor textarea,
+.dark .editor,
+.dark .editor textarea,
+.dark .jexcel_editor,
+.dark .jexcel > tbody > tr > td > input,
+.dark .jexcel_editor textarea {
+  background-color: #09090b !important;
+  color: #ffffff !important;
+  border: 1px solid #6366f1 !important;
+  outline: none !important;
+  padding: 4px 6px !important;
+}
+
+/* Context menu */
+html.dark .jcontextmenu,
+html.dark .jdropdown,
+.dark .jcontextmenu,
+.dark .jdropdown {
+  background-color: #18181b !important;
+  border: 1px solid #3f3f46 !important;
+  color: #f4f4f5 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 0.5rem !important;
+}
+
+html.dark .jcontextmenu > li:hover,
+.dark .jcontextmenu > li:hover {
+  background-color: #27272a !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   Light Mode Styles
+   ========================================================================== */
+html.light .jss_content,
+.light .jss_content,
+html.light .jexcel_content,
+.light .jexcel_content {
+  background-color: #ffffff !important;
+  border: 1px solid #e4e4e7 !important;
+}
+
+html.light .jss_worksheet > thead > tr > td,
+.light .jss_worksheet > thead > tr > td,
+html.light table.jexcel thead td,
+.light table.jexcel thead td {
+  background-color: #f4f4f5 !important;
+  color: #3f3f46 !important;
+  border-right: 1px solid #e4e4e7 !important;
+  border-bottom: 1px solid #e4e4e7 !important;
+}
+
+html.light .jss_worksheet > tbody > tr > td:first-child,
+.light .jss_worksheet > tbody > tr > td:first-child,
+html.light table.jexcel tbody > tr > td.jexcel_row,
+html.light table.jexcel tbody td:first-child,
+.light table.jexcel tbody > tr > td.jexcel_row,
+.light table.jexcel tbody td:first-child {
+  background-color: #f4f4f5 !important;
+  color: #71717a !important;
+  border-right: 1px solid #e4e4e7 !important;
+  border-bottom: 1px solid #e4e4e7 !important;
+}
+
+html.light .jss_worksheet > tbody > tr > td,
+.light .jss_worksheet > tbody > tr > td,
+html.light table.jexcel tbody > tr > td,
+.light table.jexcel tbody > tr > td {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border-right: 1px solid #e4e4e7 !important;
+  border-bottom: 1px solid #e4e4e7 !important;
+}

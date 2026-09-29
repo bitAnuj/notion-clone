@@ -1,8 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import VirtualKeyboard from "../components/Virtualkeyboard";
 import Navbar from "../components/navbar/Navbar";
-import CommandPalette from "../components/modals/CommandPalette";
 import Sidebar from "../components/sidebar/Sidebar";
+import CommandPalette from "../components/modals/CommandPalette";
 import { usePageStore } from "../store/usePageStore";
 import { useUIStore } from "../store/useUIStore";
 
@@ -11,26 +10,8 @@ type Props = {
 };
 
 function MainLayout({ children }: Props) {
-  const { addPage, pages, selectedPageId } = usePageStore();
+  const { pages, selectedPageId } = usePageStore();
   const { theme } = useUIStore();
-
-  useEffect(() => {
-    function handleShortcut(e: KeyboardEvent) {
-      const target = e.target as HTMLElement;
-      const isTyping =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable;
-
-      if (!isTyping && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        addPage();
-      }
-    }
-
-    window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
-  }, [addPage]);
 
   useEffect(() => {
     const currentPage = pages.find((p) => p.id === selectedPageId);
@@ -40,23 +21,28 @@ function MainLayout({ children }: Props) {
   }, [pages, selectedPageId]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("light", theme === "light");
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+      root.classList.remove("light");
+    } else {
+      root.classList.remove("dark");
+      root.classList.add("light");
+    }
   }, [theme]);
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-950 text-white">
+    <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 transition-colors">
       <Navbar />
       <CommandPalette />
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
           {children}
         </main>
       </div>
-
-      <VirtualKeyboard />
     </div>
   );
 }
