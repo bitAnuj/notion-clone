@@ -34,6 +34,7 @@ type UserMeta = { id: string; info: { name: string } };
 export type RoomEvent =
   | {
       type: "SHEET_CELL_CHANGE";
+      sheetIndex?: number;
       x: number;
       y: number;
       value: any;
@@ -48,13 +49,8 @@ export const {
   useUpdateMyPresence,
   useSelf,
   useOthers,
-  useOthersMapped,
-  useOthersConnectionIds,
-  useOther,
   useBroadcastEvent,
   useEventListener,
-  useStorage,
-  useMutation,
-} = createRoomContext<Presence, Storage, UserMeta, RoomEvent, ThreadMetadata>(client);
-
-export { client };
+} = createRoomContext<Presence, Storage, UserMeta, RoomEvent, ThreadMetadata>(
+  client
+);

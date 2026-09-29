@@ -25,6 +25,7 @@ import { Column, Columns } from "./columns/Columns";
 import DatabaseBlock from "./database/DatabaseBlock";
 import FileBlock from "./file/FileBlock";
 import SelectionToolbar from "./SelectionToolbar";
+import DocumentToolbox from "./DocumentToolbox";
 import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -99,8 +100,8 @@ function NotionEditor({ pageId }: { pageId: string }) {
         resizable: true,
       }),
       TableRow,
-      TableHeader,
       TableCell,
+      TableHeader,
       ToggleBlock,
       EmbedBlock,
       MathBlock,
@@ -112,39 +113,53 @@ function NotionEditor({ pageId }: { pageId: string }) {
       createPageMention(pagesRef),
       LinkUnfurl,
     ],
-
     editorProps: {
       attributes: {
         class:
-          "prose prose-invert max-w-none min-h-[700px] outline-none " +
-          "prose-headings:font-semibold prose-p:my-1 " +
-          "[&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-0 " +
-          "[&_ul[data-type=taskList]_li]:flex [&_ul[data-type=taskList]_li]:items-start [&_ul[data-type=taskList]_li]:gap-2 " +
-          "[&_ul[data-type=taskList]_input]:mt-1.5",
+          "prose prose-zinc dark:prose-invert max-w-none focus:outline-none min-h-[500px]",
+      },
+      handlePaste(view, event) {
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return false;
+
+        const isUrl = /^https?:\/\/[^\s]+$/.test(text.trim());
+        if (!isUrl) return false;
+
+        // If user has text selected, default TipTap behavior is to turn it into a link
+        const { from, to } = view.state.selection;
+        if (from !== to) return false;
+
+        // If the URL looks like an embeddable service, insert an embed block
+        const url = text.trim();
+        const isEmbeddable =
+          /youtube\.com|youtu\.be|codepen\.io|twitter\.com|x\.com|figma\.com/.test(
+            url
+          );
+        if (isEmbeddable) {
+          event.preventDefault();
+          editor?.commands.insertContent({
+            type: "embed",
+            attrs: { src: url },
+          });
+          return true;
+        }
+
+        return false;
       },
     },
-
-    onUpdate({ editor }) {
+    onUpdate: ({ editor }) => {
       updateContent(pageId, editor.getHTML());
     },
   });
 
-  // Save immediately (don't wait for the debounce) when leaving this
-  // page — either switching pages inside the app, or closing/refreshing
-  // the tab entirely.
+  // Save content when user leaves this page or component unmounts
   useEffect(() => {
-    function handleBeforeUnload() {
-      flushContent(pageId);
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
       flushContent(pageId);
     };
   }, [pageId, flushContent]);
 
-  // Clicking a mention pill navigates to that page.
+  // Click handler for page mentions
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -224,18 +239,20 @@ function NotionEditor({ pageId }: { pageId: string }) {
   return (
     <div ref={containerRef} className="relative">
       <div className="mb-2 flex items-center justify-between">
-              <button
-                onClick={() =>
-                  exportPageAsMarkdown(page?.title ?? "Untitled", editor.getHTML())
-                }
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-              >
-                <Download size={14} />
-                Export as Markdown
-              </button>
+        <button
+          onClick={() =>
+            exportPageAsMarkdown(page?.title ?? "Untitled", editor.getHTML())
+          }
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+        >
+          <Download size={14} />
+          Export as Markdown
+        </button>
 
-              <PresenceAvatars />
-            </div>
+        <PresenceAvatars />
+      </div>
+
+      <DocumentToolbox editor={editor} />
       <SelectionToolbar editor={editor} />
       <BlockDragHandle editor={editor} containerRef={containerRef} />
       <EditorContent editor={editor} />
