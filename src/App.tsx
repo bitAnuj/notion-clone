@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect} from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
@@ -7,15 +8,31 @@ import { useAuthStore } from "./store/useAuthStore";
 
 function App() {
   const { status, init } = useAuthStore();
-  const { currentVaultId, vaults, createVault, openVault } = useVaultStore();
+  const { currentVaultId, vaults, createVault, openVault, acceptInvite } = useVaultStore();
 
   useEffect(() => {
     void init();
   }, [init]);
 
   useEffect(() => {
-    if (status === "signedIn") void useVaultStore.getState().loadVaults();
-  }, [status]);
+    if (status === "signedIn") {
+      void (async () => {
+        const params = new URLSearchParams(window.location.search);
+        const inviteToken = params.get("invite");
+        if (inviteToken) {
+          try {
+            const res = await acceptInvite(inviteToken);
+            toast.success(`You joined the workspace as ${res.role}!`);
+            window.history.replaceState({}, "", window.location.pathname);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Failed to join workspace from invite";
+            toast.error(msg);
+          }
+        }
+        await useVaultStore.getState().loadVaults();
+      })();
+    }
+  }, [status, acceptInvite]);
 
   if (status === "checking") {
     return (

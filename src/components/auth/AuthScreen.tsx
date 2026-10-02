@@ -50,8 +50,9 @@ export default function AuthScreen() {
         }
         await signup(email, password, name.trim());
       }
-    } catch (err: any) {
-      setError(err.message ?? "Authentication failed");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Authentication failed";
+      setError(msg);
     } finally {
       setBusy(false);
     }

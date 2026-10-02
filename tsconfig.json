@@ -5,8 +5,16 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
+    "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "worker",
+    "worker-configuration.d.ts",
+    "docs"
+  ]
 }

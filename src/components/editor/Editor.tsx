@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   MoreHorizontal,
   ImagePlus,
@@ -57,13 +57,17 @@ function Editor() {
     page?.content && page.content.startsWith('{"type":"spreadsheet"')
   );
 
-  const [activeTab, setActiveTab] = useState<"doc" | "sheet">(
-    isSheetPage ? "sheet" : "doc"
-  );
+  const [activeTabOverride, setActiveTabOverride] = useState<{
+    pageId: string;
+    tab: "doc" | "sheet";
+  } | null>(null);
 
-  useEffect(() => {
-    setActiveTab(isSheetPage ? "sheet" : "doc");
-  }, [page?.id, isSheetPage]);
+  const activeTab: "doc" | "sheet" =
+    activeTabOverride && activeTabOverride.pageId === page?.id
+      ? activeTabOverride.tab
+      : isSheetPage
+      ? "sheet"
+      : "doc";
 
   // Home Dashboard when no page is selected
   if (!page) {
@@ -338,7 +342,7 @@ function Editor() {
         {/* Tab switch between Document and Spreadsheet mode */}
         <div className="mb-4 flex gap-1 border-b border-zinc-200 pb-2 dark:border-zinc-800">
           <button
-            onClick={() => setActiveTab("doc")}
+            onClick={() => setActiveTabOverride({ pageId: page?.id ?? "", tab: "doc" })}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === "doc"
                 ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 font-semibold"
@@ -348,7 +352,7 @@ function Editor() {
             📝 Document
           </button>
           <button
-            onClick={() => setActiveTab("sheet")}
+            onClick={() => setActiveTabOverride({ pageId: page?.id ?? "", tab: "sheet" })}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === "sheet"
                 ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 font-semibold"

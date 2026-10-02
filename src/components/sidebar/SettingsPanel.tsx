@@ -1,39 +1,48 @@
-import { useRef, useState } from "react";
+import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   Download,
   Upload,
-  X,
-  User,
-  Shield,
-  Palette,
-  FolderLock,
   Plus,
   Trash2,
-  Edit2,
+  X,
+  Palette,
+  Shield,
+  FolderLock,
+  User,
   Check,
+  Edit2,
 } from "lucide-react";
 import { usePageStore } from "../../store/usePageStore";
 import { useUIStore } from "../../store/useUIStore";
-import useVaultStore from "../../store/useVaultStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { exportAllPages, importAllPages } from "../../lib/backup";
 import { getOrCreateCollabUser, updateCollabUserName } from "../../lib/collabUser";
+import useVaultStore from "../../store/useVaultStore";
 
-type Tab = "profile" | "vault" | "backup" | "appearance";
+type Tab = "vault" | "profile" | "backup" | "appearance";
 
-function SettingsPanel() {
-  const { settingsOpen, setSettingsOpen, theme, toggleTheme } = useUIStore();
+export default function SettingsPanel() {
+  const { settingsOpen, setSettingsOpen, theme, setTheme } = useUIStore();
   const { pages, setAllPages } = usePageStore();
-  const { vaults, currentVaultId, openVault, createVault, renameVault, deleteVault } =
-    useVaultStore();
-  const { user } = useAuthStore();
+  const {
+    vaults,
+    currentVaultId,
+    createVault,
+    renameVault,
+    deleteVault,
+    openVault,
+  } = useVaultStore();
+  const { user, updateProfile } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<Tab>("vault");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
-  const [name, setName] = useState(() => getOrCreateCollabUser().name);
+  const [name, setName] = useState(() => user?.name || getOrCreateCollabUser().name);
   const [newVaultName, setNewVaultName] = useState("");
+
+  // Sync name input when authenticated user info loads
+  
 
   if (!settingsOpen) return null;
 
@@ -61,6 +70,7 @@ function SettingsPanel() {
     const value = e.target.value;
     setName(value);
     updateCollabUserName(value || "Anonymous");
+    void updateProfile(value);
   };
 
   const handleCreateNewVault = (e: React.FormEvent) => {
@@ -96,7 +106,7 @@ function SettingsPanel() {
             }`}
           >
             <FolderLock size={15} />
-            Vault Settings
+            Vaults
           </button>
 
           <button
@@ -318,7 +328,7 @@ function SettingsPanel() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="application/json"
+                    accept=".json"
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -328,17 +338,31 @@ function SettingsPanel() {
 
             {/* TAB: APPEARANCE */}
             {activeTab === "appearance" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Application Theme</p>
-                    <p className="text-xs text-zinc-500">Toggle dark or light theme across VicharHub.</p>
-                  </div>
+              <div className="space-y-3">
+                <p className="text-xs text-zinc-400">Choose your interface theme</p>
+                <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={toggleTheme}
-                    className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 shadow-xs"
+                    onClick={() => setTheme("light")}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-xs font-medium transition-all ${
+                      theme === "light"
+                        ? "border-indigo-600 bg-indigo-50/50 text-indigo-600 shadow-xs dark:bg-indigo-600/10"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                    }`}
                   >
-                    Current: {theme === "dark" ? "Dark Mode 🌙" : "Light Mode ☀️"}
+                    <div className="h-8 w-12 rounded border border-zinc-300 bg-zinc-100" />
+                    <span>Light Mode</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTheme("dark")}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-xs font-medium transition-all ${
+                      theme === "dark"
+                        ? "border-indigo-600 bg-indigo-50/50 text-indigo-400 shadow-xs dark:bg-indigo-600/20"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                    }`}
+                  >
+                    <div className="h-8 w-12 rounded border border-zinc-700 bg-zinc-950" />
+                    <span>Dark Mode</span>
                   </button>
                 </div>
               </div>
@@ -350,5 +374,3 @@ function SettingsPanel() {
     document.body
   );
 }
-
-export default SettingsPanel;

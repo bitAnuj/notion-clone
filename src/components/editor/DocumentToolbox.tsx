@@ -90,7 +90,7 @@ export default function DocumentToolbox({ editor }: Props) {
       label: "Callout",
       title: "Callout Box",
       icon: MessageSquare,
-      action: () => (editor.chain().focus() as any).setCallout().run(),
+      action: () => (editor.chain().focus() as unknown as { setCallout: () => { run: () => void } }).setCallout().run(),
       isActive: editor.isActive("callout"),
     },
     {

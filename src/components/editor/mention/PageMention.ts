@@ -2,9 +2,9 @@ import Mention from "@tiptap/extension-mention";
 import { ReactRenderer } from "@tiptap/react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import MentionList, { type MentionListRef } from "./MentionList";
-import type { Page } from "../../../types/page";
+import { usePageStore } from "../../../store/usePageStore";
 
-export function createPageMention(pagesRef: { current: Page[] }) {
+export function createPageMention() {
   return Mention.extend({ name: "pageMention" }).configure({
     HTMLAttributes: {
       class:
@@ -14,7 +14,8 @@ export function createPageMention(pagesRef: { current: Page[] }) {
       char: "@",
       items: ({ query }: { query: string }) => {
         const q = query.toLowerCase();
-        return pagesRef.current
+        const allPages = usePageStore.getState().pages;
+        return allPages
           .filter((p) => !p.trashed)
           .filter((p) => p.title.toLowerCase().includes(q))
           .slice(0, 8);

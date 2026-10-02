@@ -28,7 +28,7 @@ import SelectionToolbar from "./SelectionToolbar";
 import DocumentToolbox from "./DocumentToolbox";
 import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePageStore } from "../../store/usePageStore";
 import SlashCommand from "./slash-command/SlashCommand";
 import BlockDragHandle from "./BlockDragHandle";
@@ -53,10 +53,7 @@ function NotionEditor({ pageId }: { pageId: string }) {
 
   // Always holds the latest pages list, so the @ mention menu
   // can see newly created pages without rebuilding the editor.
-  const pagesRef = useMemo(() => ({ current: pages }), []);
-  useEffect(() => {
-    pagesRef.current = pages;
-  }, [pages]);
+  
 
   const liveblocks = useLiveblocksExtension({
     initialContent: page?.content || "<p></p>",
@@ -110,7 +107,7 @@ function NotionEditor({ pageId }: { pageId: string }) {
       DatabaseBlock,
       FileBlock,
       SlashCommand,
-      createPageMention(pagesRef),
+      createPageMention(),
       LinkUnfurl,
     ],
     editorProps: {
