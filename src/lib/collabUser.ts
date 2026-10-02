@@ -29,7 +29,10 @@ export function getOrCreateCollabUser(): CollabUser {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed.name === "string") {
+        return parsed;
+      }
     } catch {
       // fall through to create new
     }
@@ -47,6 +50,8 @@ export function getOrCreateCollabUser(): CollabUser {
 export function updateCollabUserName(name: string): CollabUser {
   const current = getOrCreateCollabUser();
   const updated = { ...current, name };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  }
   return updated;
 }

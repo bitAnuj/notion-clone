@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VicharHub Architecture - Invites &amp; RBAC</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 18mm 18mm 18mm;
+      @bottom-right {
+        content: counter(page);
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #18181b;
+      line-height: 1.6;
+      font-size: 13px;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+    .header-banner {
+      background: #4f46e5;
+      color: #ffffff;
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 24px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #09090b;
+      margin-top: 0;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #e4e4e7;
+      padding-bottom: 8px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #18181b;
+      margin-top: 24px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #f4f4f5;
+      padding-bottom: 4px;
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #27272a;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      page-break-after: avoid;
+    }
+    p {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    hr {
+      border: 0;
+      border-top: 1px solid #e4e4e7;
+      margin: 20px 0;
+    }
+    ul, ol {
+      margin-top: 0;
+      margin-bottom: 10px;
+      padding-left: 22px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    code {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 11.5px;
+      border: 1px solid #e2e8f0;
+    }
+    pre {
+      background-color: #09090b;
+      color: #f4f4f5;
+      padding: 14px 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 11.5px;
+      line-height: 1.45;
+      margin: 14px 0;
+      page-break-inside: avoid;
+    }
+    pre code {
+      background-color: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+      font-size: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      text-align: left;
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #e4e4e7;
+      padding: 7px 10px;
+    }
+    th {
+      background-color: #f4f4f5;
+      font-weight: 600;
+      color: #18181b;
+    }
+    tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+    strong {
+      color: #09090b;
+    }
+    blockquote {
+      margin: 12px 0;
+      padding: 8px 16px;
+      border-left: 4px solid #4f46e5;
+      background: #f8fafc;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-banner">
+    <span>VicharHub Architecture &amp; Design Specifications</span>
+    <span>docs/INVITES_AND_RBAC.pdf</span>
+  </div>
+  <h1>Architecture Design Document: Workspace Invites &amp; Role-Based Access Control (RBAC)</h1>
+<p><strong>Project:</strong> VicharHub<br><strong>Author:</strong> Anuj Adhikari<br><strong>Status:</strong> Approved for Implementation<br><strong>Version:</strong> 1.0  </p>
+<hr>
+<h2>1. Executive Summary &amp; Problem Statement</h2>
+<p>Currently, in VicharHub:</p>
+<ul>
+<li>Vaults are owned by a single <code>user_id</code> (<code>vaults.user_id = user.id</code>).</li>
+<li>Only the creator of a vault can read, modify, or delete its documents and spreadsheets.</li>
+<li>If two teammates or students want to collaborate on the same workspace, they currently have no mechanism to share the vault or control who has administrative power versus editing or viewing rights.</li>
+</ul>
+<p>This document outlines the architecture, data models, security guarantees, lifecycle states, and API endpoints for:</p>
+<ol>
+<li><strong>Workspace Invites</strong>: Secure invitation flows with time-bounded, cryptographically random tokens and email targeting.</li>
+<li><strong>Role-Based Access Control (RBAC)</strong>: Fine-grained permission matrices enforcing separation of duties between <strong>Owner</strong>, <strong>Admin</strong>, <strong>Member</strong>, and <strong>Viewer</strong>.</li>
+</ol>
+<hr>
+<h2>2. Core Concepts Explained Simply</h2>
+<pre><code>                             [ Vault / Workspace ]
+                                       │
+        ┌───────────────────┬──────────┴──────────┬──────────────────┐
+        ▼                   ▼                     ▼                  ▼
+    [ Owner ]            [ Admin ]             [ Member ]         [ Viewer ]
+  Full ownership,    Invite &amp; manage,      Read &amp; write pages,    Read-only,
+  billing, transfer,   edit documents,       edit sheets, live     comment, no edits,
+  vault deletion       cannot delete vault   cannot invite/kick   cannot delete
+</code></pre>
+<h3>The Three Fundamental Entities:</h3>
+<ol>
+<li><strong>Subject (Who?)</strong>: The authenticated user (<code>user_id</code>, <code>email</code>, <code>name</code>).</li>
+<li><strong>Resource (What?)</strong>: The vault, its pages, and collaborative Liveblocks rooms.</li>
+<li><strong>Action (How?)</strong>: What operation the user wants to perform (<code>read</code>, <code>create</code>, <code>update</code>, <code>delete</code>, <code>invite</code>, <code>manage_roles</code>).</li>
+</ol>
+<h3>Role Definitions:</h3>
+<ul>
+<li><strong><code>owner</code></strong>: The vault creator. Has all capabilities, including destructive actions (deleting the vault) and transferring ownership. There is strictly <strong>1 owner</strong> per vault.</li>
+<li><strong><code>admin</code></strong>: Trusted collaborator. Can invite new members, change roles of members/viewers, remove members, and edit/create pages. Cannot delete the vault or demote/remove the owner.</li>
+<li><strong><code>member</code></strong>: Standard contributor. Can create, edit, duplicate, favorite, and trash pages or edit spreadsheet cells. Cannot invite others, modify vault settings, or manage roles.</li>
+<li><strong><code>viewer</code></strong>: Read-only collaborator. Can view pages, browse the document tree, and observe real-time spreadsheets/docs. Cannot modify titles, content, or settings.</li>
+</ul>
+<hr>
+<h2>3. Permission Matrix (RBAC)</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Action</th>
+<th align="center">Owner</th>
+<th align="center">Admin</th>
+<th align="center">Member</th>
+<th align="center">Viewer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>View Pages &amp; Spreadsheets</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+</tr>
+<tr>
+<td align="left"><strong>Liveblocks Presence &amp; Cursor</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+</tr>
+<tr>
+<td align="left"><strong>Create New Page / Spreadsheet</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Edit Page Content &amp; Title</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Edit Spreadsheet Cells &amp; Formulas</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Add / Delete Sheets (Tabs)</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Trash / Restore / Duplicate Page</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Export JSON / CSV Backup</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+</tr>
+<tr>
+<td align="left"><strong>Invite New Collaborator</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Revoke Pending Invites</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Change Member Role (Member $\leftrightarrow$ Viewer)</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Promote Member to Admin</strong></td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Remove Collaborator (Kick)</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes*</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Rename Vault</strong></td>
+<td align="center">Yes</td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Delete Vault Entirely</strong></td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+<tr>
+<td align="left"><strong>Transfer Ownership</strong></td>
+<td align="center">Yes</td>
+<td align="center">No</td>
+<td align="center">No</td>
+<td align="center">No</td>
+</tr>
+</tbody></table>
+<p><em>*Admins can remove Members and Viewers, but cannot remove the Owner or other Admins.</em></p>
+<hr>
+<h2>4. Invitation Lifecycle &amp; State Machine</h2>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Pending: Admin creates invite with email + role
+    Pending --&gt; Accepted: Recipient signs in &amp; clicks accept
+    Pending --&gt; Revoked: Admin cancels the invite
+    Pending --&gt; Expired: 7 days elapse without acceptance
+    Accepted --&gt; [*]: User added to vault_members
+    Revoked --&gt; [*]
+    Expired --&gt; [*]
+</code></pre>
+<h3>Lifecycle States:</h3>
+<ol>
+<li><strong>Creation</strong>:<ul>
+<li>An Admin/Owner submits recipient&#39;s email (<code>user@example.com</code>) and target role (<code>admin</code>, <code>member</code>, <code>viewer</code>).</li>
+<li>A cryptographically secure random token (32 bytes hex) is generated.</li>
+<li>An expiration date is set (default: 7 days from creation).</li>
+<li>Saved with status <code>pending</code>.</li>
+</ul>
+</li>
+<li><strong>Acceptance</strong>:<ul>
+<li>Recipient accesses the invite link (<code>https://vicharhub.workers.dev/invite/&lt;token&gt;</code>).</li>
+<li>If user is not authenticated, they sign in or sign up first.</li>
+<li>Server verifies:<ul>
+<li>Token exists and has status <code>pending</code>.</li>
+<li><code>expires_at &gt; current_timestamp</code>.</li>
+<li>Optional check: email matches or user accepts with their logged-in account.</li>
+</ul>
+</li>
+<li>Server inserts recipient into <code>vault_members</code> with the assigned role.</li>
+<li>Invite status transitions to <code>accepted</code>.</li>
+</ul>
+</li>
+<li><strong>Revocation &amp; Expiry</strong>:<ul>
+<li>If an invite is no longer desired, the Admin can click &quot;Revoke&quot;, transitioning status to <code>revoked</code>.</li>
+<li>Any access after 7 days is rejected with <code>410 Gone</code> (Invite Expired).</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>5. Database Schema (Cloudflare D1 SQLite)</h2>
+<pre><code class="language-sql">-- 1. Vault Members: Junction table associating users with vaults and roles
+CREATE TABLE IF NOT EXISTS vault_members (
+  id         TEXT PRIMARY KEY,
+  vault_id   TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role       TEXT NOT NULL CHECK (role IN (&#39;owner&#39;, &#39;admin&#39;, &#39;member&#39;, &#39;viewer&#39;)),
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE(vault_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_members_user  ON vault_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_vault_members_vault ON vault_members(vault_id);
+
+-- 2. Vault Invites: Secure invite tokens and metadata
+CREATE TABLE IF NOT EXISTS vault_invites (
+  id         TEXT PRIMARY KEY,
+  vault_id   TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+  inviter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email      TEXT NOT NULL COLLATE NOCASE,
+  role       TEXT NOT NULL CHECK (role IN (&#39;admin&#39;, &#39;member&#39;, &#39;viewer&#39;)),
+  token_hash TEXT NOT NULL UNIQUE,
+  status     TEXT NOT NULL DEFAULT &#39;pending&#39; CHECK (status IN (&#39;pending&#39;, &#39;accepted&#39;, &#39;revoked&#39;, &#39;expired&#39;)),
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_invites_token ON vault_invites(token_hash);
+CREATE INDEX IF NOT EXISTS idx_vault_invites_vault ON vault_invites(vault_id);
+</code></pre>
+<h3>Migration Backfill:</h3>
+<p>For all existing vaults in the database:</p>
+<pre><code class="language-sql">INSERT OR IGNORE INTO vault_members (id, vault_id, user_id, role, created_at)
+SELECT &#39;vm_&#39; || id, id, user_id, &#39;owner&#39;, created_at FROM vaults;
+</code></pre>
+<p>This guarantees 100% backward compatibility for all existing user data.</p>
+<hr>
+<h2>6. API Specification</h2>
+<h3>A. Invites</h3>
+<ul>
+<li><code>POST /api/vaults/:vaultId/invites</code><ul>
+<li><strong>Required Role</strong>: <code>owner</code> or <code>admin</code></li>
+<li><strong>Body</strong>: <code>{ &quot;email&quot;: &quot;teammate@company.com&quot;, &quot;role&quot;: &quot;member&quot; }</code></li>
+<li><strong>Response</strong>: <code>{ &quot;id&quot;: &quot;...&quot;, &quot;inviteUrl&quot;: &quot;.../invite/&lt;token&gt;&quot;, &quot;expiresAt&quot;: ... }</code></li>
+</ul>
+</li>
+<li><code>GET /api/vaults/:vaultId/invites</code><ul>
+<li><strong>Required Role</strong>: <code>owner</code> or <code>admin</code></li>
+<li><strong>Response</strong>: List of pending invites for the vault.</li>
+</ul>
+</li>
+<li><code>DELETE /api/vaults/:vaultId/invites/:inviteId</code><ul>
+<li><strong>Required Role</strong>: <code>owner</code> or <code>admin</code></li>
+<li><strong>Response</strong>: <code>{ &quot;success&quot;: true }</code> (marks status as <code>revoked</code>).</li>
+</ul>
+</li>
+<li><code>GET /api/invites/:token</code><ul>
+<li><strong>Public endpoint</strong>: Returns vault name and inviter name for previewing the invite.</li>
+</ul>
+</li>
+<li><code>POST /api/invites/:token/accept</code><ul>
+<li><strong>Requires</strong>: Authenticated user.</li>
+<li><strong>Response</strong>: <code>{ &quot;vaultId&quot;: &quot;...&quot;, &quot;role&quot;: &quot;...&quot; }</code> and joins user to vault.</li>
+</ul>
+</li>
+</ul>
+<h3>B. Members &amp; Roles</h3>
+<ul>
+<li><code>GET /api/vaults/:vaultId/members</code><ul>
+<li><strong>Required Role</strong>: Any member of the vault (<code>owner</code>, <code>admin</code>, <code>member</code>, <code>viewer</code>).</li>
+<li><strong>Response</strong>: <code>[{ &quot;id&quot;: &quot;...&quot;, &quot;userId&quot;: &quot;...&quot;, &quot;name&quot;: &quot;...&quot;, &quot;email&quot;: &quot;...&quot;, &quot;role&quot;: &quot;admin&quot; }]</code></li>
+</ul>
+</li>
+<li><code>PATCH /api/vaults/:vaultId/members/:userId</code><ul>
+<li><strong>Required Role</strong>: <code>owner</code> (can change any role) or <code>admin</code> (can change <code>member</code> $\leftrightarrow$ <code>viewer</code>).</li>
+<li><strong>Body</strong>: <code>{ &quot;role&quot;: &quot;admin&quot; | &quot;member&quot; | &quot;viewer&quot; }</code></li>
+</ul>
+</li>
+<li><code>DELETE /api/vaults/:vaultId/members/:userId</code><ul>
+<li><strong>Required Role</strong>: <code>owner</code> or <code>admin</code> (or user leaving the vault themselves).</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>7. Security Best Practices</h2>
+<ol>
+<li><strong>Never Store Plaintext Tokens</strong>: Tokens are hashed with SHA-256 before storing in the database (<code>token_hash</code>), preventing leaks if the database is dumped.</li>
+<li><strong>Server-Side Authorization Everywhere</strong>: The client UI only hides/disables buttons for UX; every single backend endpoint enforces the permission check via SQLite queries (<code>getUserVaultRole()</code>).</li>
+<li><strong>No Self-Demotion of Last Owner</strong>: The vault owner cannot delete themselves or demote their role without transferring ownership first.</li>
+<li><strong>Tenant Isolation</strong>: Users can never view or modify pages outside the vaults where they are verified members.</li>
+</ol>
+
+</body>
+</html>

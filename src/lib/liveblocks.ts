@@ -1,11 +1,16 @@
 import { createClient } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 import { getOrCreateCollabUser } from "./collabUser";
+import { useAuthStore } from "../store/useAuthStore";
 
 const client = createClient({
   throttle: 16,
   authEndpoint: async (room) => {
-    const user = getOrCreateCollabUser();
+    const authUser = useAuthStore.getState().user;
+    const localUser = getOrCreateCollabUser();
+    const effectiveName = authUser?.name?.trim() || localUser.name || "Anonymous";
+    const effectiveId = authUser?.id || localUser.id;
+
     const accessToken = localStorage.getItem("vh_access_token") ?? "";
     const response = await fetch("/api/liveblocks-auth", {
       method: "POST",
@@ -15,8 +20,8 @@ const client = createClient({
       },
       body: JSON.stringify({
         room,
-        userId: user.id,
-        userName: user.name,
+        userId: effectiveId,
+        userName: effectiveName,
       }),
     });
     return response.json();
@@ -37,7 +42,7 @@ export type RoomEvent =
       sheetIndex?: number;
       x: number;
       y: number;
-      value: any;
+      value: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     };
 
 type ThreadMetadata = { resolved: boolean };

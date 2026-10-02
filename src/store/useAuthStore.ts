@@ -14,6 +14,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
+  updateProfile: (name: string) => Promise<void>;
   loadUser: () => Promise<void>;
   init: () => Promise<void>;
 }
@@ -106,6 +107,29 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       throw error;
     }
   },
+  updateProfile: async (name: string) => {
+    const token = get().accessToken || (typeof localStorage !== "undefined" ? localStorage.getItem("vh_access_token") : null);
+    if (!token) return;
+
+    // Optimistically update
+    set((s) => ({ user: { ...s.user, name } }));
+
+    const res = await fetch("/api/auth/me", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        set({ user: { id: data.user.id, email: data.user.email, name: data.user.name ?? "" } });
+      }
+    }
+  },
   loadUser: async () => {
     const token = localStorage.getItem("vh_access_token");
     const payload = token ? decodeJwtPayload(token) : null;
@@ -114,6 +138,26 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       set({ status: "signedOut", accessToken: "" });
       return;
     }
+    
+    // Fetch user details from /api/auth/me to get the actual name from the DB
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({
+          status: "signedIn",
+          accessToken: token,
+          user: { id: data.user.id, email: data.user.email, name: data.user.name ?? "" },
+        });
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
     set({ status: "signedIn", accessToken: token, user: { id: payload.sub, email: "", name: "" } });
   },
   init: async () => {

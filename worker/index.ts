@@ -273,7 +273,7 @@ function mapPage(r: Row): Row {
 }
 
 function mapVault(r: Row): Row {
-  return { id: r.id, name: r.name, createdAt: r.created_at };
+  return { id: r.id, name: r.name, role: (r.role as string) || 'owner', createdAt: r.created_at };
 }
 
 // ---------- Main fetch handler ----------
@@ -294,6 +294,10 @@ export default {
       if (path === "/api/auth/me") return await me(request, env.DB, env.JWT_SECRET);
       if (path === "/api/auth/google") return await googleLogin(request, env);
       if (path === "/api/auth/google/callback") return await googleCallback(request, env, env.DB);
+
+      // ----- Liveblocks auth (supports anonymous/guest & authenticated users) -----
+      if (path === "/api/liveblocks-auth" && request.method === "POST")
+        return handleLiveblocksAuth(request, env);
 
       // ----- Everything below requires a valid access token -----
       const user = await getUserFromRequest(env.DB, request, env.JWT_SECRET);
@@ -327,9 +331,6 @@ export default {
       if (m && request.method === "PATCH") return patchPage(request, env.DB, user!.id, m[1]);
       if (m && request.method === "DELETE")
         return deletePage(env.DB, user!.id, m[1], url.searchParams.get("permanent") === "true");
-      // ----- Liveblocks auth (unchanged behaviour) -----
-      if (path === "/api/liveblocks-auth" && request.method === "POST")
-        return handleLiveblocksAuth(request, env);
 
       // ----- Static site -----
       return env.ASSETS.fetch(request);
@@ -525,6 +526,14 @@ async function logout(request: Request, db: D1Database): Promise<Response> {
 async function me(request: Request, db: D1Database, jwtSecret: string): Promise<Response> {
   const user = await getUserFromRequest(db, request, jwtSecret);
   if (!user) return err("Not signed in", 401);
+  if (request.method === 'PATCH') {
+    const body = (await request.json().catch(() => ({}))) as { name?: string };
+    const name = (body.name ?? '').trim();
+    if (name) {
+      await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(name, user.id).run();
+      user.name = name;
+    }
+  }
   return json({ user });
 }
 

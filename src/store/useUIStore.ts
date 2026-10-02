@@ -23,6 +23,7 @@ type UIStore = {
 
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (t: Theme) => void;
 };
 
 export const useUIStore = create<UIStore>((set, get) => ({
@@ -60,5 +61,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
     const next = get().theme === "dark" ? "light" : "dark";
     localStorage.setItem("vicharhub-theme", next);
     set({ theme: next });
+  },
+  setTheme: (theme: Theme) => {
+    localStorage.setItem("vicharhub-theme", theme);
+    set({ theme });
   },
 }));
