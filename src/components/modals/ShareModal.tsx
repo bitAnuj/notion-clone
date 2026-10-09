@@ -12,6 +12,7 @@ import {
   Copy,
   Check,
   Link2,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -76,9 +77,9 @@ export default function ShareModal({ vaultId, isOpen, onClose }: ShareModalProps
     try {
       const invite = await createInvite(vaultId, inviteEmail.trim(), inviteRole);
       setInviteEmail("");
-      toast.success(`Invite created for ${invite.email}`);
+      toast.success(`Invitation created for ${invite.email}!`);
       await navigator.clipboard.writeText(invite.inviteUrl);
-      toast.info("Invite link copied to clipboard!");
+      toast.info("Invite link copied to clipboard & email dispatched if Resend API key configured.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create invite";
       toast.error(msg);
@@ -179,18 +180,24 @@ export default function ShareModal({ vaultId, isOpen, onClose }: ShareModalProps
           {/* Invite form (only visible to owner and admin) */}
           {canManage ? (
             <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                Invite by Email
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Invite by Email
+                </label>
+                <span className="text-[11px] text-zinc-400">Recipient receives email + direct invite link</span>
+              </div>
               <form onSubmit={handleSendInvite} className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  className="flex-1 rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none transition focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                />
+                <div className="relative flex-1">
+                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="colleague@domain.com"
+                    className="w-full rounded-xl border border-zinc-300 bg-white pl-8.5 pr-3.5 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none transition focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  />
+                </div>
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "viewer")}
@@ -206,7 +213,7 @@ export default function ShareModal({ vaultId, isOpen, onClose }: ShareModalProps
                   className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-500 disabled:opacity-50"
                 >
                   <UserPlus size={14} />
-                  <span>Invite</span>
+                  <span>{busy ? "Sending..." : "Invite"}</span>
                 </button>
               </form>
             </div>

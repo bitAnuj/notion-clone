@@ -30,6 +30,8 @@ import { Download } from "lucide-react";
 import { exportPageAsMarkdown } from "../../lib/exportMarkdown";
 import { useEffect, useRef, useState } from "react";
 import { usePageStore } from "../../store/usePageStore";
+import { useAuthStore } from "../../store/useAuthStore";
+import { getOrCreateCollabUser, COLLAB_NAME_CHANGE_EVENT } from "../../lib/collabUser";
 import SlashCommand from "./slash-command/SlashCommand";
 import BlockDragHandle from "./BlockDragHandle";
 import { createPageMention } from "./mention/PageMention";
@@ -51,12 +53,14 @@ function NotionEditor({ pageId }: { pageId: string }) {
     position: { x: number; y: number };
   } | null>(null);
 
-  // Always holds the latest pages list, so the @ mention menu
-  // can see newly created pages without rebuilding the editor.
-  
+  // Check if current page content is spreadsheet JSON
+  const isSpreadsheet = Boolean(
+    page?.content?.includes('"type":"spreadsheet"') ||
+    page?.content?.includes('"type": "spreadsheet"')
+  );
 
   const liveblocks = useLiveblocksExtension({
-    initialContent: page?.content || "<p></p>",
+    initialContent: isSpreadsheet ? "<p></p>" : page?.content || "<p></p>",
   });
 
   const editor = useEditor({
@@ -145,11 +149,66 @@ function NotionEditor({ pageId }: { pageId: string }) {
       },
     },
     onUpdate: ({ editor }) => {
+      // Guard against corrupting spreadsheet data if user switches tabs
+      const current = usePageStore.getState().pages.find((p) => p.id === pageId);
+      if (
+        current?.content?.includes('"type":"spreadsheet"') ||
+        current?.content?.includes('"type": "spreadsheet"')
+      ) {
+        return;
+      }
       updateContent(pageId, editor.getHTML());
     },
   });
 
-  // Save content when user leaves this page or component unmounts
+  const authUserName = useAuthStore((s) => s.user?.name);
+
+  // Sync TipTap collaborative caret with latest user display name
+  useEffect(() => {
+    if (!editor) return;
+    const name = authUserName?.trim() || getOrCreateCollabUser().name || "Guest";
+    const color = getOrCreateCollabUser().color || "#4f46e5";
+    try {
+      if (typeof (editor.commands as any).updateUser === "function") { // eslint-disable-line @typescript-eslint/no-explicit-any
+        (editor.commands as any).updateUser({ name, color }); // eslint-disable-line @typescript-eslint/no-explicit-any
+      }
+    } catch {
+      // ignore
+    }
+  }, [editor, authUserName]);
+
+  useEffect(() => {
+    if (!editor) return;
+    function handleNameChange(e: Event) {
+      const detail = (e as CustomEvent<{ name?: string }>).detail;
+      if (detail?.name) {
+        const color = getOrCreateCollabUser().color || "#4f46e5";
+        try {
+          if (typeof (editor?.commands as any)?.updateUser === "function") { // eslint-disable-line @typescript-eslint/no-explicit-any
+            (editor?.commands as any).updateUser({ name: detail.name, color }); // eslint-disable-line @typescript-eslint/no-explicit-any
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    window.addEventListener(COLLAB_NAME_CHANGE_EVENT, handleNameChange);
+    return () => window.removeEventListener(COLLAB_NAME_CHANGE_EVENT, handleNameChange);
+  }, [editor]);
+
+  // Handle Cmd+K for slash command
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        editor?.commands.insertContent("/");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor]);
+
+  // Flush pending content saves when component unmounts (e.g. navigating away)
   useEffect(() => {
     return () => {
       flushContent(pageId);
@@ -226,6 +285,24 @@ function NotionEditor({ pageId }: { pageId: string }) {
       container.removeEventListener("mouseout", onMouseOut);
     };
   }, []);
+
+  // Synchronize collaborator caret name in Tiptap whenever display name updates
+  const authName = useAuthStore((s) => s.user?.name);
+  useEffect(() => {
+    if (!editor) return;
+    const name = authName?.trim() || getOrCreateCollabUser().name || "Guest";
+    const color = getOrCreateCollabUser().color || "#4f46e5";
+    (editor.commands as Record<string, any>).updateUser?.({ name, color }); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    function handleNameChange(e: Event) {
+      const detail = (e as CustomEvent<{ name?: string }>).detail;
+      if (detail?.name && editor) {
+        (editor.commands as Record<string, any>).updateUser?.({ name: detail.name, color }); // eslint-disable-line @typescript-eslint/no-explicit-any
+      }
+    }
+    window.addEventListener(COLLAB_NAME_CHANGE_EVENT, handleNameChange);
+    return () => window.removeEventListener(COLLAB_NAME_CHANGE_EVENT, handleNameChange);
+  }, [editor, authName]);
 
   if (!editor) return null;
 

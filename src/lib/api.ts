@@ -54,7 +54,7 @@ function buildHeaders(body: unknown, token: string | null): HeadersInit | undefi
 
 export async function api<T>(
   path: string,
-  options: { method?: string; body?: unknown } = {}
+  options: { method?: string; body?: unknown; keepalive?: boolean } = {}
 ): Promise<T> {
   const isAuthRoute = path.startsWith("/api/auth/");
   const send = (token: string | null): Promise<Response> =>
@@ -63,6 +63,7 @@ export async function api<T>(
       headers: buildHeaders(options.body, token),
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       credentials: "include",
+      keepalive: options.keepalive,
     });
 
   let response = await send(readAccessToken());

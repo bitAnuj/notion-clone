@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { useEffect} from "react";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import AuthScreen from "./components/auth/AuthScreen";
@@ -24,15 +24,20 @@ function App() {
             const res = await acceptInvite(inviteToken);
             toast.success(`You joined the workspace as ${res.role}!`);
             window.history.replaceState({}, "", window.location.pathname);
+            if (res?.vaultId) {
+              await openVault(res.vaultId);
+            }
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Failed to join workspace from invite";
             toast.error(msg);
+            await useVaultStore.getState().loadVaults();
           }
+        } else {
+          await useVaultStore.getState().loadVaults();
         }
-        await useVaultStore.getState().loadVaults();
       })();
     }
-  }, [status, acceptInvite]);
+  }, [status, acceptInvite, openVault]);
 
   if (status === "checking") {
     return (
