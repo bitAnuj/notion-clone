@@ -42,6 +42,7 @@ function Editor() {
     duplicatePage,
     deletePage,
     selectPage,
+    updateContent,
   } = usePageStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -54,7 +55,11 @@ function Editor() {
   const page = pages.find((p) => p.id === selectedPageId);
 
   const isSheetPage = Boolean(
-    page?.content && page.content.startsWith('{"type":"spreadsheet"')
+    page?.content && (
+      page.content.startsWith('{"type":"spreadsheet"') ||
+      page.content.includes('"type":"spreadsheet"') ||
+      page.content.includes('"type": "spreadsheet"')
+    )
   );
 
   const [activeTabOverride, setActiveTabOverride] = useState<{
@@ -82,32 +87,32 @@ function Editor() {
     const favoritePages = pages.filter((p) => !p.trashed && p.favorite);
 
     const createSheetPage = () => {
-      addPage();
-      setTimeout(() => {
-        const latest = usePageStore.getState().pages[0];
-        if (latest) {
-          usePageStore
-            .getState()
-            .updateContent(
-              latest.id,
-              JSON.stringify({
-                type: "spreadsheet",
-                sheets: [
-                  {
-                    id: "sheet-1",
-                    title: "Sheet1",
-                    data: [
-                      ["Item", "Quantity", "Price", "=B1*C1"],
-                      ["Notebook", "5", "12", "=B2*C2"],
-                      ["Pen", "10", "2", "=B3*C3"],
-                      ["Desk Mat", "1", "25", "=B4*C4"],
-                    ],
-                  },
-                ],
-              })
-            );
-        }
-      }, 50);
+      const defaultSpreadsheetContent = JSON.stringify({
+        type: "spreadsheet",
+        sheets: [
+          {
+            id: "sheet-1",
+            title: "Sheet1",
+            data: [
+              ["Item", "Quantity", "Price", "=B1*C1"],
+              ["Notebook", "5", "12", "=B2*C2"],
+              ["Pen", "10", "2", "=B3*C3"],
+              ["Desk Mat", "1", "25", "=B4*C4"],
+            ],
+          },
+        ],
+        data: [
+          ["Item", "Quantity", "Price", "=B1*C1"],
+          ["Notebook", "5", "12", "=B2*C2"],
+          ["Pen", "10", "2", "=B3*C3"],
+          ["Desk Mat", "1", "25", "=B4*C4"],
+        ],
+      });
+      addPage({
+        title: "Spreadsheet",
+        icon: "📊",
+        content: defaultSpreadsheetContent,
+      });
     };
 
     return (
@@ -352,7 +357,31 @@ function Editor() {
             📝 Document
           </button>
           <button
-            onClick={() => setActiveTabOverride({ pageId: page?.id ?? "", tab: "sheet" })}
+            onClick={() => {
+              setActiveTabOverride({ pageId: page?.id ?? "", tab: "sheet" });
+              if (page && !isSheetPage) {
+                const defaultSpreadsheetContent = JSON.stringify({
+                  type: "spreadsheet",
+                  sheets: [
+                    {
+                      id: "sheet-1",
+                      title: "Sheet1",
+                      data: [
+                        ["", "", "", ""],
+                        ["", "", "", ""],
+                        ["", "", "", ""],
+                      ],
+                    },
+                  ],
+                  data: [
+                    ["", "", "", ""],
+                    ["", "", "", ""],
+                    ["", "", "", ""],
+                  ],
+                });
+                updateContent(page.id, defaultSpreadsheetContent);
+              }
+            }}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === "sheet"
                 ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 font-semibold"

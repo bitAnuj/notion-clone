@@ -8,8 +8,9 @@ const client = createClient({
   authEndpoint: async (room) => {
     const authUser = useAuthStore.getState().user;
     const localUser = getOrCreateCollabUser();
-    const effectiveName = authUser?.name?.trim() || localUser.name || "Anonymous";
+    const effectiveName = authUser?.name?.trim() || localUser.name || "Guest";
     const effectiveId = authUser?.id || localUser.id;
+    const effectiveColor = localUser.color || "#4f46e5";
 
     const accessToken = localStorage.getItem("vh_access_token") ?? "";
     const response = await fetch("/api/liveblocks-auth", {
@@ -22,6 +23,7 @@ const client = createClient({
         room,
         userId: effectiveId,
         userName: effectiveName,
+        userColor: effectiveColor,
       }),
     });
     return response.json();
@@ -31,10 +33,15 @@ const client = createClient({
 type Presence = {
   cursor?: { x: number; y: number };
   selection?: { anchor: number; head: number };
+  displayName?: string;
+  user?: { name?: string; color?: string };
+  liveblocksTiptap?: {
+    user?: { name?: string; color?: string };
+  };
 };
 
 type Storage = Record<string, never>;
-type UserMeta = { id: string; info: { name: string } };
+type UserMeta = { id: string; info: { name: string; color?: string } };
 
 export type RoomEvent =
   | {
@@ -56,6 +63,4 @@ export const {
   useOthers,
   useBroadcastEvent,
   useEventListener,
-} = createRoomContext<Presence, Storage, UserMeta, RoomEvent, ThreadMetadata>(
-  client
-);
+} = createRoomContext<Presence, Storage, UserMeta, RoomEvent, ThreadMetadata>(client);

@@ -48,51 +48,66 @@ const DEFAULT_SHEETS: SheetTab[] = [
   },
 ];
 
+function parseSpreadsheetContent(content?: string): SheetTab[] | null {
+  if (!content) return null;
+  let raw = content.trim();
+
+  // If content was wrapped in HTML like <p>{"type":"spreadsheet"...}</p> or escaped HTML entities
+  if (raw.includes('"type":"spreadsheet"') || raw.includes('"type": "spreadsheet"')) {
+    const firstBrace = raw.indexOf('{"type"');
+    const lastBrace = raw.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      raw = raw.slice(firstBrace, lastBrace + 1);
+      raw = raw
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed.type === "spreadsheet" && Array.isArray(parsed.sheets) && parsed.sheets.length > 0) {
+      return parsed.sheets;
+    }
+    if (parsed.type === "spreadsheet" && Array.isArray(parsed.data) && parsed.data.length > 0) {
+      return [{ id: "sheet-1", title: "Sheet1", data: parsed.data }];
+    }
+  } catch (err) {
+    console.error("Failed to parse spreadsheet content:", err);
+  }
+  return null;
+}
+
 export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
-  const { pages, updateContent, flushContent } = usePageStore();
-  const currentPage = pages.find((p) => p.id === pageId);
+  // Use granular selectors to avoid re-rendering SpreadsheetEditor on unrelated page store changes
+  const currentPageContent = usePageStore((s) => s.pages.find((p) => p.id === pageId)?.content);
+  const currentPageTitle = usePageStore((s) => s.pages.find((p) => p.id === pageId)?.title);
+  const updateContent = usePageStore((s) => s.updateContent);
+  const flushContent = usePageStore((s) => s.flushContent);
 
   // Initialize sheets from page content JSON if exists
-  const [sheetsList, setSheetsList] = useState<SheetTab[]>(() => {
-    if (currentPage?.content) {
-      try {
-        const parsed = JSON.parse(currentPage.content);
-        if (parsed.type === "spreadsheet" && Array.isArray(parsed.sheets) && parsed.sheets.length > 0) {
-          return parsed.sheets;
-        }
-        if (parsed.type === "spreadsheet" && Array.isArray(parsed.data)) {
-          return [{ id: "sheet-1", title: "Sheet1", data: parsed.data }];
-        }
-      } catch {
-        // fallback
-      }
-    }
-    return DEFAULT_SHEETS;
-  });
-
+  const initialParsed = parseSpreadsheetContent(currentPageContent);
+  const [sheetsList, setSheetsList] = useState<SheetTab[]>(() => initialParsed || DEFAULT_SHEETS);
   const [activeSheetIndex, setActiveSheetIndex] = useState<number>(0);
+
   const sheetContainerRef = useRef<HTMLDivElement>(null);
   const sheetInstanceRef = useRef<WorksheetInstance[] | null>(null);
 
   // Ref to prevent echo loops when remote events update the sheet
   const isRemoteChangeRef = useRef<boolean>(false);
+  const lastSavedPayloadRef = useRef<string | null>(currentPageContent ?? null);
 
   // Keep stable refs to avoid recreating useEffect listeners & causing re-renders
   const activeSheetIndexRef = useRef(activeSheetIndex);
+  activeSheetIndexRef.current = activeSheetIndex;
+
   const sheetsListRef = useRef(sheetsList);
+  sheetsListRef.current = sheetsList;
+
   const pageIdRef = useRef(pageId);
-
-  useEffect(() => {
-    activeSheetIndexRef.current = activeSheetIndex;
-  }, [activeSheetIndex]);
-
-  useEffect(() => {
-    sheetsListRef.current = sheetsList;
-  }, [sheetsList]);
-
-  useEffect(() => {
-    pageIdRef.current = pageId;
-  }, [pageId]);
+  pageIdRef.current = pageId;
 
   // Google Sheets formula bar state
   const [selectedCellName, setSelectedCellName] = useState<string>("A1");
@@ -135,27 +150,50 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
     if (!worksheet) return;
 
     try {
+      // 1. Force blur on active input inside grid container
+      const container = sheetContainerRef.current;
+      if (container) {
+        const activeInput = container.querySelector(
+          ".editor input, .editor textarea, td.editor input"
+        ) as HTMLInputElement | null;
+        if (activeInput) {
+          activeInput.blur();
+        }
+      }
+
+      // 2. Properly close active editor in jspreadsheet-ce v5
+      if (worksheet.edition && worksheet.edition[0]) {
+        try {
+          worksheet.closeEditor(worksheet.edition[0], true);
+        } catch {
+          // ignore
+        }
+      }
+
       const currentData = worksheet.getData();
-      const updatedSheets = sheetsListRef.current.map((sheet, idx) => {
+      if (!Array.isArray(currentData)) return;
+
+      sheetsListRef.current = sheetsListRef.current.map((sheet, idx) => {
         if (idx === activeSheetIndexRef.current) {
           return { ...sheet, data: currentData };
         }
         return sheet;
       });
 
-      sheetsListRef.current = updatedSheets;
-      setSheetsList(updatedSheets);
-
       const payload = JSON.stringify({
         type: "spreadsheet",
-        sheets: updatedSheets,
-        data: updatedSheets[0]?.data ?? [],
+        sheets: sheetsListRef.current,
+        data: sheetsListRef.current[0]?.data ?? [],
       });
+      lastSavedPayloadRef.current = payload;
       updateContent(pageIdRef.current, payload);
     } catch (err) {
       console.error("Failed to get sheet data:", err);
     }
   }, [getActiveWorksheet, updateContent]);
+
+  const saveCurrentSheetDataRef = useRef(saveCurrentSheetData);
+  saveCurrentSheetDataRef.current = saveCurrentSheetData;
 
   // Liveblocks real-time cell change listener
   useEventListener(({ event }) => {
@@ -181,7 +219,6 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
         return sheet;
       });
       sheetsListRef.current = updatedSheets;
-      setSheetsList(updatedSheets);
 
       // Persist to page store
       const payload = JSON.stringify({
@@ -189,6 +226,7 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
         sheets: updatedSheets,
         data: updatedSheets[0]?.data ?? [],
       });
+      lastSavedPayloadRef.current = payload;
       updateContent(pageIdRef.current, payload);
 
       // 2. If the active tab matches, update the active jspreadsheet instance
@@ -237,26 +275,10 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
     setFormulaValue(String(rawValue));
   }, [getActiveWorksheet]);
 
-  // Keep change handler stable
-  const handleAfterChanges = useCallback((changes: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (isRemoteChangeRef.current) return;
+  const updateFormulaBarRef = useRef(updateFormulaBar);
+  updateFormulaBarRef.current = updateFormulaBar;
 
-    saveCurrentSheetData();
-
-    if (Array.isArray(changes)) {
-      for (const change of changes) {
-        broadcastRef.current({
-          type: "SHEET_CELL_CHANGE",
-          sheetIndex: activeSheetIndexRef.current,
-          x: Number(change.x),
-          y: Number(change.y),
-          value: change.value,
-        });
-      }
-    }
-  }, [saveCurrentSheetData]);
-
-  // Initialize or reload current active worksheet ONLY when pageId or activeSheetIndex changes
+  // Initialize or reload current active worksheet ONLY when activeSheetIndex or pageId changes
   useEffect(() => {
     const containerEl = sheetContainerRef.current;
     if (!containerEl) return;
@@ -274,22 +296,35 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
       tableOverflow: true,
       tableWidth: "100%",
       tableHeight: "500px",
+      parseFormulas: true,
       columns: [
         { type: "text", title: "A", width: 140 },
-        { type: "numeric", title: "B", width: 110 },
-        { type: "numeric", title: "C", width: 110 },
-        { type: "numeric", title: "D", width: 130 },
+        { type: "text", title: "B", width: 120 },
+        { type: "text", title: "C", width: 120 },
+        { type: "text", title: "D", width: 130 },
         { type: "text", title: "E", width: 120 },
         { type: "text", title: "F", width: 120 },
         { type: "text", title: "G", width: 120 },
         { type: "text", title: "H", width: 120 },
       ],
       onafterchanges: (_instance: any, changes: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        handleAfterChanges(changes);
+        if (isRemoteChangeRef.current) return;
+        saveCurrentSheetDataRef.current();
+        if (Array.isArray(changes)) {
+          for (const change of changes) {
+            broadcastRef.current({
+              type: "SHEET_CELL_CHANGE",
+              sheetIndex: activeSheetIndexRef.current,
+              x: Number(change.x),
+              y: Number(change.y),
+              value: change.value,
+            });
+          }
+        }
       },
       onchange: (_instance: any, _cell: any, x: any, y: any, value: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (isRemoteChangeRef.current) return;
-        saveCurrentSheetData();
+        saveCurrentSheetDataRef.current();
         broadcastRef.current({
           type: "SHEET_CELL_CHANGE",
           sheetIndex: activeSheetIndexRef.current,
@@ -298,6 +333,13 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
           value,
         });
       },
+      onselection: (_instance: any, x1: number, y1: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        updateFormulaBarRef.current(x1, y1);
+      },
+      ondeleterow: () => saveCurrentSheetDataRef.current(),
+      oninsertrow: () => saveCurrentSheetDataRef.current(),
+      ondeletecolumn: () => saveCurrentSheetDataRef.current(),
+      oninsertcolumn: () => saveCurrentSheetDataRef.current(),
     };
 
     const sheets = jspreadsheet(containerEl, {
@@ -308,11 +350,23 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
         }
       },
       onafterchanges: (_instance: any, changes: any[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        handleAfterChanges(changes);
+        if (isRemoteChangeRef.current) return;
+        saveCurrentSheetDataRef.current();
+        if (Array.isArray(changes)) {
+          for (const change of changes) {
+            broadcastRef.current({
+              type: "SHEET_CELL_CHANGE",
+              sheetIndex: activeSheetIndexRef.current,
+              x: Number(change.x),
+              y: Number(change.y),
+              value: change.value,
+            });
+          }
+        }
       },
       onchange: (_instance: any, _cell: any, x: any, y: any, value: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (isRemoteChangeRef.current) return;
-        saveCurrentSheetData();
+        saveCurrentSheetDataRef.current();
         broadcastRef.current({
           type: "SHEET_CELL_CHANGE",
           sheetIndex: activeSheetIndexRef.current,
@@ -322,12 +376,12 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
         });
       },
       onselection: (_instance: any, x1: number, y1: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        updateFormulaBar(x1, y1);
+        updateFormulaBarRef.current(x1, y1);
       },
-      ondeleterow: () => saveCurrentSheetData(),
-      oninsertrow: () => saveCurrentSheetData(),
-      ondeletecolumn: () => saveCurrentSheetData(),
-      oninsertcolumn: () => saveCurrentSheetData(),
+      ondeleterow: () => saveCurrentSheetDataRef.current(),
+      oninsertrow: () => saveCurrentSheetDataRef.current(),
+      ondeletecolumn: () => saveCurrentSheetDataRef.current(),
+      oninsertcolumn: () => saveCurrentSheetDataRef.current(),
     });
 
     if (sheets && Array.isArray(sheets) && sheets.length > 0) {
@@ -335,13 +389,71 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
     }
 
     return () => {
-      flushContent(pageId);
+      saveCurrentSheetDataRef.current();
+      flushContent(pageIdRef.current);
       if (containerEl) {
         containerEl.innerHTML = "";
       }
       sheetInstanceRef.current = null;
     };
-  }, [activeSheetIndex, pageId, handleAfterChanges, updateFormulaBar, saveCurrentSheetData, flushContent]);
+  }, [activeSheetIndex, pageId, flushContent]);
+
+  // Synchronize when page content updates from server or external source
+  useEffect(() => {
+    if (!currentPageContent) return;
+    if (currentPageContent === lastSavedPayloadRef.current) return;
+
+    const parsed = parseSpreadsheetContent(currentPageContent);
+    if (parsed && parsed.length > 0) {
+      lastSavedPayloadRef.current = currentPageContent;
+      sheetsListRef.current = parsed;
+      setSheetsList(parsed);
+
+      const targetSheet = parsed[activeSheetIndexRef.current] || parsed[0];
+      const worksheet = getActiveWorksheet();
+      if (worksheet && typeof worksheet.setData === "function" && targetSheet?.data) {
+        isRemoteChangeRef.current = true;
+        try {
+          worksheet.setData(targetSheet.data);
+        } catch (err) {
+          console.error("Failed to setData on worksheet:", err);
+        } finally {
+          isRemoteChangeRef.current = false;
+        }
+      }
+    }
+  }, [currentPageContent, getActiveWorksheet]);
+
+  // Commit and flush on page refresh / unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const container = sheetContainerRef.current;
+      if (container) {
+        const activeInput = container.querySelector(
+          ".editor input, .editor textarea, td.editor input"
+        ) as HTMLInputElement | null;
+        if (activeInput) {
+          activeInput.blur();
+        }
+      }
+
+      const worksheet = getActiveWorksheet();
+      if (worksheet && worksheet.edition && worksheet.edition[0]) {
+        try {
+          worksheet.closeEditor(worksheet.edition[0], true);
+        } catch {
+          // ignore
+        }
+      }
+      saveCurrentSheetDataRef.current();
+      flushContent(pageIdRef.current);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [getActiveWorksheet, flushContent]);
 
   // Tab operations
   const handleSwitchTab = (newIndex: number) => {
@@ -352,7 +464,7 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
 
   const handleAddTab = () => {
     saveCurrentSheetData();
-    const newNumber = sheetsList.length + 1;
+    const newNumber = sheetsListRef.current.length + 1;
     const newSheet: SheetTab = {
       id: `sheet-${Date.now()}`,
       title: `Sheet${newNumber}`,
@@ -362,19 +474,29 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
         ["", "", "", ""],
       ],
     };
-    const updated = [...sheetsList, newSheet];
+    const updated = [...sheetsListRef.current, newSheet];
+    sheetsListRef.current = updated;
     setSheetsList(updated);
     setActiveSheetIndex(updated.length - 1);
+
+    const payload = JSON.stringify({
+      type: "spreadsheet",
+      sheets: updated,
+      data: updated[0]?.data ?? [],
+    });
+    lastSavedPayloadRef.current = payload;
+    updateContent(pageId, payload);
   };
 
   const handleRenameTab = (index: number) => {
-    const currentTitle = sheetsList[index].title;
+    const currentTitle = sheetsListRef.current[index]?.title || "Sheet";
     const nextTitle = prompt("Enter sheet name:", currentTitle);
     if (!nextTitle || !nextTitle.trim() || nextTitle.trim() === currentTitle) return;
 
-    const updated = sheetsList.map((s, idx) =>
+    const updated = sheetsListRef.current.map((s, idx) =>
       idx === index ? { ...s, title: nextTitle.trim() } : s
     );
+    sheetsListRef.current = updated;
     setSheetsList(updated);
 
     const payload = JSON.stringify({
@@ -382,17 +504,19 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
       sheets: updated,
       data: updated[0]?.data ?? [],
     });
+    lastSavedPayloadRef.current = payload;
     updateContent(pageId, payload);
   };
 
   const handleDeleteTab = (index: number) => {
-    if (sheetsList.length <= 1) {
+    if (sheetsListRef.current.length <= 1) {
       alert("Cannot delete the only sheet.");
       return;
     }
-    if (!confirm(`Delete "${sheetsList[index].title}"?`)) return;
+    if (!confirm(`Delete "${sheetsListRef.current[index]?.title}"?`)) return;
 
-    const updated = sheetsList.filter((_, idx) => idx !== index);
+    const updated = sheetsListRef.current.filter((_, idx) => idx !== index);
+    sheetsListRef.current = updated;
     setSheetsList(updated);
 
     let nextActive = activeSheetIndex;
@@ -406,6 +530,7 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
       sheets: updated,
       data: updated[0]?.data ?? [],
     });
+    lastSavedPayloadRef.current = payload;
     updateContent(pageId, payload);
   };
 
@@ -441,7 +566,7 @@ export default function SpreadsheetEditor({ pageId }: SpreadsheetEditorProps) {
       link.setAttribute("href", encodedUri);
       link.setAttribute(
         "download",
-        `${currentPage?.title || "Spreadsheet"}-${sheetsList[activeSheetIndex]?.title || "Sheet"}.csv`
+        `${currentPageTitle || "Spreadsheet"}-${sheetsListRef.current[activeSheetIndex]?.title || "Sheet"}.csv`
       );
       document.body.appendChild(link);
       link.click();

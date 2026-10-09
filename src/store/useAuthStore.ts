@@ -1,3 +1,4 @@
+import { updateCollabUserName } from "../lib/collabUser";
 import { create } from "zustand";
 
 interface User {
@@ -59,6 +60,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           status: "signedIn",
         });
         await get().loadUser();
+        if (data.user.name) updateCollabUserName(data.user.name);
       } else {
         set({ status: "signedOut" });
         throw new Error(data.error ?? "Login failed");
@@ -152,6 +154,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           accessToken: token,
           user: { id: data.user.id, email: data.user.email, name: data.user.name ?? "" },
         });
+        if (data.user.name) { updateCollabUserName(data.user.name); }
         return;
       }
     } catch {
@@ -221,6 +224,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           name: meData.user.name ?? "",
         },
       });
+      if (meData.user?.name) {
+        updateCollabUserName(meData.user.name);
+      }
     } catch {
       clearStoredTokens();
       set({

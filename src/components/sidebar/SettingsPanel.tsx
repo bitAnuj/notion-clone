@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   Download,
@@ -38,11 +38,30 @@ export default function SettingsPanel() {
   const [activeTab, setActiveTab] = useState<Tab>("vault");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
-  const [name, setName] = useState(() => user?.name || getOrCreateCollabUser().name);
-  const [newVaultName, setNewVaultName] = useState("");
+  const [name, setName] = useState(() => {
+    const authName = user?.name?.trim();
+    if (authName) return authName;
+    return getOrCreateCollabUser().name || "";
+  });
 
-  // Sync name input when authenticated user info loads
-  
+  const [newVaultName, setNewVaultName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  // Synchronize local input field when settings panel opens
+  useEffect(() => {
+    if (settingsOpen) {
+      const authUserName = user?.name?.trim();
+      const localName = getOrCreateCollabUser().name;
+      setName(authUserName || localName || "");
+    }
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    if (!name && user?.name?.trim()) {
+      setName(user.name.trim());
+    }
+  }, [user?.name]);
 
   if (!settingsOpen) return null;
 
@@ -66,11 +85,25 @@ export default function SettingsPanel() {
     e.target.value = "";
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setName(value);
-    updateCollabUserName(value || "Anonymous");
-    void updateProfile(value);
+  const handleSaveName = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setIsSavingName(true);
+    try {
+      updateCollabUserName(trimmed);
+      await updateProfile(trimmed);
+      setNameSaved(true);
+      setMessage("Display name updated everywhere!");
+      setTimeout(() => {
+        setNameSaved(false);
+        setMessage("");
+      }, 2500);
+    } catch (err) {
+      console.error("Failed to save profile name", err);
+    } finally {
+      setIsSavingName(false);
+    }
   };
 
   const handleCreateNewVault = (e: React.FormEvent) => {
@@ -271,20 +304,41 @@ export default function SettingsPanel() {
             {/* TAB: PROFILE */}
             {activeTab === "profile" && (
               <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                    Live Display Name
-                  </label>
-                  <input
-                    value={name}
-                    onChange={handleNameChange}
-                    placeholder="Your Name"
-                    className="mt-1.5 w-full rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950/60 dark:text-zinc-100 dark:placeholder:text-zinc-600"
-                  />
-                  <p className="mt-1 text-xs text-zinc-500">
-                    This tag floats over collaborative cursors and presence avatars in both Document & Spreadsheet mode.
-                  </p>
-                </div>
+                <form onSubmit={handleSaveName} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                      Live Display Name
+                    </label>
+                    <div className="mt-1.5 flex gap-2">
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Your Name (e.g. Anuj Adhikari)"
+                        className="flex-1 rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950/60 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSavingName || !name.trim()}
+                        className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 transition-all cursor-pointer"
+                      >
+                        {nameSaved ? (
+                          <>
+                            <Check size={14} className="text-emerald-300" />
+                            Saved!
+                          </>
+                        ) : isSavingName ? (
+                          "Saving..."
+                        ) : (
+                          "Save Name"
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-xs text-zinc-500">
+                      This tag floats over your collaborative cursors and presence avatars in both Document & Spreadsheet mode.
+                    </p>
+                  </div>
+                </form>
 
                 {user?.email && (
                   <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
@@ -361,7 +415,7 @@ export default function SettingsPanel() {
                         : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
-                    <div className="h-8 w-12 rounded border border-zinc-700 bg-zinc-950" />
+                    <div className="h-8 w-12 rounded border border-zinc-700 bg-zinc-800" />
                     <span>Dark Mode</span>
                   </button>
                 </div>

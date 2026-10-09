@@ -56,7 +56,7 @@ type PageStore = {
   cacheOwner: string | null;
   cache?: Record<string, { pages: Page[]; selectedPageId: string }> | undefined;
 
-  addPage: () => void;
+  addPage: (overrides?: Partial<Page>) => string;
   addChildPage: (parentId: string) => void;
   duplicatePage: (id: string) => void;
 
@@ -97,6 +97,16 @@ const fail = (e: unknown) => {
 const contentTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const pendingContent: Record<string, string> = {};
 
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => {
+    for (const [id, content] of Object.entries(pendingContent)) {
+      clearTimeout(contentTimers[id]);
+      delete pendingContent[id];
+      api(`/api/pages/${id}`, { method: "PATCH", body: { content }, keepalive: true }).catch(fail);
+    }
+  });
+}
+
 const initialPages: Page[] = [];
 
 export const usePageStore = create<PageStore>()(
@@ -106,19 +116,40 @@ export const usePageStore = create<PageStore>()(
       selectedPageId: "",
       cacheOwner: null,
 
-      addPage: () => {
+      addPage: (overrides) => {
         const id = crypto.randomUUID();
         const now = new Date();
         const vaultId = activeVaultId;
+        const newPage: Page = {
+          id,
+          title: overrides?.title ?? "Untitled",
+          content: overrides?.content ?? "",
+          icon: overrides?.icon ?? "📄",
+          cover: overrides?.cover ?? "",
+          favorite: overrides?.favorite ?? false,
+          trashed: overrides?.trashed ?? false,
+          parentId: overrides?.parentId ?? null,
+          isExpanded: true,
+          createdAt: now,
+          updatedAt: now,
+        };
         set((s) => ({
-          pages: [
-            ...s.pages,
-            { id, title: "Untitled", content: "", icon: "📄", cover: "", favorite: false, trashed: false, parentId: null, isExpanded: true, createdAt: now, updatedAt: now },
-          ],
-          selectedPageId: s.selectedPageId || id,
+          pages: [...s.pages, newPage],
+          selectedPageId: id,
         }));
         if (vaultId)
-          api("/api/pages", { method: "POST", body: { id, vaultId } }).catch(fail);
+          api("/api/pages", {
+            method: "POST",
+            body: {
+              id,
+              vaultId,
+              parentId: newPage.parentId,
+              title: newPage.title,
+              content: newPage.content,
+              icon: newPage.icon,
+            },
+          }).catch(fail);
+        return id;
       },
 
       addChildPage: (parentId) => {
@@ -202,7 +233,7 @@ export const usePageStore = create<PageStore>()(
         clearTimeout(contentTimers[id]);
         const content = pendingContent[id];
         delete pendingContent[id];
-        api(`/api/pages/${id}`, { method: "PATCH", body: { content } }).catch(fail);
+        api(`/api/pages/${id}`, { method: "PATCH", body: { content }, keepalive: true }).catch(fail);
       },
 
       updateIcon: (id, icon) => {

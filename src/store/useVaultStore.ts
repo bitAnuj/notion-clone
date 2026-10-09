@@ -163,13 +163,13 @@ export const useVaultStore = create<VaultStore>()(
       loadMembers: async (vaultId) => {
         set({ loadingMembers: true });
         try {
-          const data = await api<{ members: VaultMember[] }>(
-            `/api/vaults/${vaultId}/members`
-          );
+          const data = await api<{ members: VaultMember[] }>({
+            path: `/api/vaults/${vaultId}/members`,
+          }.path);
           set({ members: data.members ?? [] });
         } catch {
           // If backend RBAC endpoint is not deployed yet, seed current user as owner
-                    set({
+          set({
             members: [
               {
                 id: "self",
@@ -257,6 +257,9 @@ export const useVaultStore = create<VaultStore>()(
           body: { token },
         });
         await get().loadVaults();
+        if (data?.vaultId) {
+          await get().openVault(data.vaultId);
+        }
         return data;
       },
 

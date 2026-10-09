@@ -1,12 +1,15 @@
 import { useOthers } from "../../lib/liveblocks";
 
 function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  return (
+    name
+      .split(" ")
+      .map((part) => part[0])
+      .filter(Boolean)
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "?"
+  );
 }
 
 function PresenceAvatars() {
@@ -20,14 +23,19 @@ function PresenceAvatars() {
   return (
     <div className="flex items-center -space-x-2">
       {visible.map((other) => {
-        const name = other.info?.name || "Anonymous";
+        // Prefer live updated presence displayName, fallback to info.name or Anonymous
+        const name =
+          (other.presence as { displayName?: string } | undefined)?.displayName ||
+          (other.presence as { user?: { name?: string } } | undefined)?.user?.name ||
+          other.info?.name ||
+          "Guest";
         const color = stringToColor(name);
 
         return (
           <div
             key={other.connectionId}
             title={name}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 text-[10px] font-semibold text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 text-[10px] font-semibold text-white transition-all"
             style={{ backgroundColor: color }}
           >
             {getInitials(name)}

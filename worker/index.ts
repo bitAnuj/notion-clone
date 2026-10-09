@@ -2,6 +2,7 @@
 // ---------- Types ----------
 interface Env {
   LIVEBLOCKS_SECRET_KEY: string;
+  RESEND_API_KEY?: string;
   JWT_SECRET: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
@@ -224,11 +225,34 @@ async function getUserFromRequest(
 
 // Ownership helpers -------------------------------------------------------
 async function ownsVault(db: D1Database, vaultId: string, userId: string): Promise<boolean> {
-  const row = await db
+  const direct = await db
     .prepare("SELECT id FROM vaults WHERE id = ? AND user_id = ?")
     .bind(vaultId, userId)
     .first();
-  return !!row;
+  if (direct) return true;
+  const member = await db
+    .prepare("SELECT id FROM vault_members WHERE vault_id = ? AND user_id = ? AND role IN ('owner', 'admin')")
+    .bind(vaultId, userId)
+    .first();
+  return !!member;
+}
+
+async function canAccessVault(
+  db: D1Database,
+  vaultId: string,
+  userId: string,
+  requireWrite = false
+): Promise<boolean> {
+  const direct = await db
+    .prepare("SELECT id FROM vaults WHERE id = ? AND user_id = ?")
+    .bind(vaultId, userId)
+    .first();
+  if (direct) return true;
+  const query = requireWrite
+    ? "SELECT id FROM vault_members WHERE vault_id = ? AND user_id = ? AND role IN ('owner', 'admin', 'member')"
+    : "SELECT id FROM vault_members WHERE vault_id = ? AND user_id = ?";
+  const member = await db.prepare(query).bind(vaultId, userId).first();
+  return !!member;
 }
 
 async function getPageWithVault(
@@ -238,10 +262,13 @@ async function getPageWithVault(
 ): Promise<Row | null> {
   return db
     .prepare(
-      `SELECT p.*, v.user_id FROM pages p JOIN vaults v ON v.id = p.vault_id
-       WHERE p.id = ? AND v.user_id = ?`
+      `SELECT p.*, v.user_id, COALESCE(vm.role, CASE WHEN v.user_id = ? THEN 'owner' ELSE NULL END) AS member_role
+       FROM pages p
+       JOIN vaults v ON v.id = p.vault_id
+       LEFT JOIN vault_members vm ON vm.vault_id = v.id AND vm.user_id = ?
+       WHERE p.id = ? AND (v.user_id = ? OR vm.id IS NOT NULL)`
     )
-    .bind(pageId, userId)
+    .bind(userId, userId, pageId, userId)
     .first();
 }
 
@@ -331,6 +358,24 @@ export default {
       if (m && request.method === "PATCH") return patchPage(request, env.DB, user!.id, m[1]);
       if (m && request.method === "DELETE")
         return deletePage(env.DB, user!.id, m[1], url.searchParams.get("permanent") === "true");
+
+      // ----- Vault Members & Invites (RBAC) -----
+      m = path.match(/^\/api\/vaults\/([^/]+)\/members$/);
+      if (m && request.method === "GET") return listMembers(env.DB, user!.id, m[1]);
+
+      m = path.match(/^\/api\/vaults\/([^/]+)\/members\/([^/]+)$/);
+      if (m && request.method === "PATCH") return updateMemberRole(request, env.DB, user!.id, m[1], m[2]);
+      if (m && request.method === "DELETE") return removeMember(env.DB, user!.id, m[1], m[2]);
+
+      m = path.match(/^\/api\/vaults\/([^/]+)\/invites$/);
+      if (m && request.method === "GET") return listInvites(env.DB, user!.id, m[1]);
+      if (m && request.method === "POST") return createInviteHandler(request, env, user!.id, m[1]);
+
+      m = path.match(/^\/api\/vaults\/([^/]+)\/invites\/([^/]+)$/);
+      if (m && request.method === "DELETE") return revokeInviteHandler(env.DB, user!.id, m[1], m[2]);
+
+      if (path === "/api/invites/accept" && request.method === "POST")
+        return acceptInviteHandler(request, env.DB, user!.id);
 
       // ----- Static site -----
       return env.ASSETS.fetch(request);
@@ -452,6 +497,14 @@ async function signup(request: Request, db: D1Database, jwtSecret: string): Prom
   // Housekeeping: drop expired refresh tokens
   await db.prepare("DELETE FROM refresh_tokens WHERE expires_at < unixepoch()").run();
 
+  // Create default personal workspace for new user
+  const defaultVaultId = crypto.randomUUID();
+  const now = Math.floor(Date.now() / 1000);
+  await db.prepare("INSERT INTO vaults (id, user_id, name, created_at) VALUES (?, ?, 'Personal Workspace', ?)").bind(defaultVaultId, id, now).run();
+  const welcomePageId = crypto.randomUUID();
+  await db.prepare("INSERT INTO pages (id, vault_id, user_id, title, content, icon, created_at, updated_at) VALUES (?, ?, ?, 'Welcome', '<p>Welcome to your new workspace!</p', '👔', ?, ?)").bind(welcomePageId, defaultVaultId, id, now, now).run();
+
+
   const refreshToken = await createRefreshToken(db, id);
   const accessToken = await signJWT({ sub: id }, jwtSecret, ACCESS_TTL_SECONDS);
 
@@ -540,8 +593,18 @@ async function me(request: Request, db: D1Database, jwtSecret: string): Promise<
 // ---------- Vault handlers ----------
 async function listVaults(db: D1Database, userId: string): Promise<Response> {
   const res = await db
-    .prepare("SELECT * FROM vaults WHERE user_id = ? ORDER BY created_at ASC")
-    .bind(userId)
+    .prepare(`
+      SELECT v.id, v.name, v.user_id, v.created_at, 'owner' AS role
+      FROM vaults v
+      WHERE v.user_id = ?
+      UNION
+      SELECT v.id, v.name, v.user_id, v.created_at, vm.role AS role
+      FROM vaults v
+      JOIN vault_members vm ON vm.vault_id = v.id
+      WHERE vm.user_id = ?
+      ORDER BY created_at ASC`
+    )
+    .bind(userId, userId)
     .all<Row>();
   return json({ vaults: res.results?.map(mapVault) ?? [] });
 }
@@ -573,7 +636,7 @@ async function deleteVault(db: D1Database, userId: string, vaultId: string): Pro
 
 // ---------- Page handlers ----------
 async function listPages(db: D1Database, userId: string, vaultId: string): Promise<Response> {
-  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  if (!(await canAccessVault(db, vaultId, userId, false))) return err("Vault not found", 404);
   const res = await db
     .prepare("SELECT * FROM pages WHERE vault_id = ? ORDER BY order_index ASC, created_at ASC")
     .bind(vaultId)
@@ -583,10 +646,10 @@ async function listPages(db: D1Database, userId: string, vaultId: string): Promi
 
 async function createPage(request: Request, db: D1Database, userId: string): Promise<Response> {
   const body = (await request.json().catch(() => ({}))) as {
-    id?: string; vaultId?: string; parentId?: string | null; title?: string; icon?: string;
+    id?: string; vaultId?: string; parentId?: string | null; title?: string; icon?: string; content?: string; cover?: string;
   };
   const vaultId = body.vaultId ?? "";
-  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  if (!(await canAccessVault(db, vaultId, userId, true))) return err("Vault not found or read-only", 403);
   if (body.parentId && !(await getPageWithVault(db, body.parentId, userId)))
     return err("Parent page not found", 404);
 
@@ -627,6 +690,7 @@ async function createPage(request: Request, db: D1Database, userId: string): Pro
 async function patchPage(request: Request, db: D1Database, userId: string, pageId: string): Promise<Response> {
   const page = await getPageWithVault(db, pageId, userId);
   if (!page) return err("Page not found", 404);
+  if (page.member_role === "viewer") return err("Read-only access", 403);
 
   const body = (await request.json().catch(() => ({}))) as Row;
   const allowed: Record<string, (v: unknown) => unknown> = {
@@ -663,6 +727,7 @@ async function patchPage(request: Request, db: D1Database, userId: string, pageI
 async function duplicatePage(request: Request, db: D1Database, userId: string, pageId: string): Promise<Response> {
   const page = await getPageWithVault(db, pageId, userId);
   if (!page) return err("Page not found", 404);
+  if (page.member_role === "viewer") return err("Read-only access", 403);
   const body = (await request.json().catch(() => ({}))) as { newId?: string };
   const newId = body.newId || crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
@@ -685,6 +750,7 @@ async function duplicatePage(request: Request, db: D1Database, userId: string, p
 async function restorePage(db: D1Database, userId: string, pageId: string): Promise<Response> {
   const page = await getPageWithVault(db, pageId, userId);
   if (!page) return err("Page not found", 404);
+  if (page.member_role === "viewer") return err("Read-only access", 403);
   await db
     .prepare(`${SUBTREE_SQL} UPDATE pages SET trashed = 0, updated_at = unixepoch() WHERE id IN (SELECT id FROM sub)`)
     .bind(pageId)
@@ -695,6 +761,7 @@ async function restorePage(db: D1Database, userId: string, pageId: string): Prom
 async function deletePage(db: D1Database, userId: string, pageId: string, permanent: boolean): Promise<Response> {
   const page = await getPageWithVault(db, pageId, userId);
   if (!page) return err("Page not found", 404);
+  if (page.member_role === "viewer") return err("Read-only access", 403);
 
   if (permanent) {
     await db
@@ -720,6 +787,7 @@ async function reorderPage(request: Request, db: D1Database, userId: string): Pr
   const dragged = await getPageWithVault(db, draggedId, userId);
   const target = await getPageWithVault(db, targetId, userId);
   if (!dragged || !target) return err("Page not found", 404);
+  if (dragged.member_role === "viewer" || target.member_role === "viewer") return err("Read-only access", 403);
 
   // Prevent dropping a page into its own subtree
   const subtree = await db
@@ -754,17 +822,208 @@ async function reorderPage(request: Request, db: D1Database, userId: string): Pr
   return json({ ok: true });
 }
 
-// ---------- Liveblocks auth (unchanged) ----------
+// ---------- Vault Members ----------
+async function listMembers(db: D1Database, userId: string, vaultId: string): Promise<Response> {
+  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  const res = await db
+    .prepare(
+      `SELECT vm.id, vm.user_id AS userId, u.email, u.name, vm.role, vm.created_at AS createdAt
+       FROM vault_members vm JOIN users u ON u.id = vm.user_id
+       WHERE vm.vault_id = ? ORDER BY vm.created_at ASC`
+    )
+    .bind(vaultId)
+    .all<Row>();
+  return json({ members: res.results ?? [] });
+}
+
+async function updateMemberRole(
+  request: Request, db: D1Database, userId: string, vaultId: string, targetUserId: string
+): Promise<Response> {
+  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  const body = (await request.json().catch(() => ({}))) as { role?: string };
+  const role = body.role;
+  if (!role || !["admin", "member", "viewer"].includes(role)) return err("Invalid role", 400);
+  await db
+    .prepare("UPDATE vault_members SET role = ? WHERE vault_id = ? AND user_id = ?")
+    .bind(role, vaultId, targetUserId)
+    .run();
+  return json({ ok: true });
+}
+
+async function removeMember(
+  db: D1Database, userId: string, vaultId: string, targetUserId: string
+): Promise<Response> {
+  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  await db
+    .prepare("DELETE FROM vault_members WHERE vault_id = ? AND user_id = ?")
+    .bind(vaultId, targetUserId)
+    .run();
+  return json({ ok: true });
+}
+
+// ---------- Vault Invites ----------
+async function listInvites(db: D1Database, userId: string, vaultId: string): Promise<Response> {
+  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  const res = await db
+    .prepare(
+      `SELECT id, email, role, status, expires_at AS expiresAt, created_at AS createdAt
+       FROM vault_invites WHERE vault_id = ? AND status = 'pending' ORDER BY created_at DESC`
+    )
+    .bind(vaultId)
+    .all<Row>();
+  return json({ invites: res.results ?? [] });
+}
+
+async function createInviteHandler(
+  request: Request, env: Env, userId: string, vaultId: string
+): Promise<Response> {
+  if (!(await ownsVault(env.DB, vaultId, userId))) return err("Vault not found", 404);
+  const body = (await request.json().catch(() => ({}))) as { email?: string; role?: string };
+  const email = (body.email ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return err("Valid email is required", 400);
+  const role = body.role ?? "member";
+  if (!["admin", "member", "viewer"].includes(role)) return err("Invalid role", 400);
+
+  const tokenBytes = crypto.getRandomValues(new Uint8Array(24));
+  const token = bytesToB64(tokenBytes).replace(/[+/=]/g, (c) =>
+    c === "+" ? "-" : c === "/" ? "_" : ""
+  );
+  const tokenHash = await sha256Hex(token);
+  const id = crypto.randomUUID();
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + 7 * 86400;
+
+  await env.DB
+    .prepare(
+      `INSERT INTO vault_invites (id, vault_id, inviter_id, email, role, token_hash, status, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+    )
+    .bind(id, vaultId, userId, email, role, tokenHash, expiresAt, now)
+    .run();
+
+  const origin = new URL(request.url).origin;
+  const inviteUrl = `${origin}/?invite=${encodeURIComponent(token)}`;
+
+  const inviter = await env.DB
+    .prepare("SELECT name, email FROM users WHERE id = ?")
+    .bind(userId)
+    .first<{ name: string; email: string }>();
+  const inviterName = inviter?.name || inviter?.email || "Someone";
+
+  const vault = await env.DB
+    .prepare("SELECT name FROM vaults WHERE id = ?")
+    .bind(vaultId)
+    .first<{ name: string }>();
+  const vaultName = vault?.name || "a workspace";
+
+  // Send invitation email via Resend API
+  if (env.RESEND_API_KEY) {
+    try {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "VicharHub <onboarding@resend.dev>",
+          to: [email],
+          subject: `${inviterName} invited you to join "${vaultName}" on VicharHub`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+              <h2 style="color: #18181b; margin-bottom: 8px;">You've been invited!</h2>
+              <p style="color: #52525b; font-size: 15px; line-height: 1.6;">
+                <strong>${inviterName}</strong> has invited you to collaborate on
+                <strong>"${vaultName}"</strong> as a <strong>${role}</strong>.
+              </p>
+              <a href="${inviteUrl}" style="display: inline-block; margin: 24px 0; padding: 12px 28px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+                Accept Invitation
+              </a>
+              <p style="color: #a1a1aa; font-size: 13px; margin-top: 32px;">This invite expires in 7 days. If you didn't expect this, you can safely ignore it.</p>
+            </div>
+          `,
+        }),
+      });
+    } catch (emailErr) {
+      console.error("Failed to send invite email:", emailErr);
+    }
+  }
+
+  return json({
+    invite: { id, email, role, token, inviteUrl, expiresAt, createdAt: now },
+  }, 201);
+}
+
+async function revokeInviteHandler(
+  db: D1Database, userId: string, vaultId: string, inviteId: string
+): Promise<Response> {
+  if (!(await ownsVault(db, vaultId, userId))) return err("Vault not found", 404);
+  await db
+    .prepare("UPDATE vault_invites SET status = 'revoked' WHERE id = ? AND vault_id = ?")
+    .bind(inviteId, vaultId)
+    .run();
+  return json({ ok: true });
+}
+
+async function acceptInviteHandler(
+  request: Request, db: D1Database, userId: string
+): Promise<Response> {
+  const body = (await request.json().catch(() => ({}))) as { token?: string };
+  const token = body.token ?? "";
+  if (!token) return err("Invite token is required", 400);
+
+  const tokenHash = await sha256Hex(token);
+  const now = Math.floor(Date.now() / 1000);
+  const invite = await db
+    .prepare(
+      `SELECT id, vault_id, role, status FROM vault_invites
+       WHERE token_hash = ? AND expires_at > ?`
+    )
+    .bind(tokenHash, now)
+    .first<{ id: string; vault_id: string; role: string; status: string }>();
+
+  if (!invite) return err("Invalid or expired invite", 404);
+
+  const existing = await db
+    .prepare("SELECT id FROM vault_members WHERE vault_id = ? AND user_id = ?")
+    .bind(invite.vault_id, userId)
+    .first();
+
+  if (!existing) {
+    const memberId = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO vault_members (id, vault_id, user_id, role, created_at)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .bind(memberId, invite.vault_id, userId, invite.role, now)
+      .run();
+  }
+
+  if (invite.status === 'pending') {
+    await db
+      .prepare("UPDATE vault_invites SET status = 'accepted' WHERE id = ?")
+      .bind(invite.id)
+      .run();
+  }
+
+  return json({ vaultId: invite.vault_id, role: invite.role });
+}
+
+// ---------- Liveblocks auth ----------
 async function handleLiveblocksAuth(request: Request, env: Env): Promise<Response> {
-  let body: { userId?: string; userName?: string } = {};
+  let body: { userId?: string; userName?: string; userColor?: string } = {};
   try {
     body = await request.json();
   } catch {
     // no body sent, that's fine, we'll use defaults
   }
 
-  const userId = body.userId || crypto.randomUUID();
-  const userName = body.userName || "Anonymous";
+  // If request has Authorization bearer token, check the user in DB for latest name
+  const authUser = await getUserFromRequest(env.DB, request, env.JWT_SECRET);
+  const userId = authUser?.id || body.userId || crypto.randomUUID();
+  const userName = (authUser?.name || body.userName || "Guest").trim();
+  const userColor = body.userColor || "#4f46e5";
 
   const response = await fetch("https://api.liveblocks.io/v2/authorize-user", {
     method: "POST",
@@ -774,7 +1033,7 @@ async function handleLiveblocksAuth(request: Request, env: Env): Promise<Respons
     },
     body: JSON.stringify({
       userId,
-      userInfo: { name: userName },
+      userInfo: { name: userName, color: userColor },
       permissions: { "*": ["room:write"] },
     }),
   });
